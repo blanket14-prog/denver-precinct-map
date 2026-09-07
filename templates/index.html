@@ -118,8 +118,12 @@
 
   .leaflet-container{font:inherit}
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
-  .leaflet-control-layers{border-radius:8px;border:1px solid var(--line);
-    box-shadow:0 4px 16px rgba(20,30,45,.12)}
+  .leaflet-control-layers,
+  .leaflet-control-zoom{border-radius:8px;border:1px solid var(--line);
+    box-shadow:0 4px 16px rgba(20,30,45,.12);overflow:hidden}
+  .leaflet-control-zoom a{color:var(--ink);border-bottom-color:var(--line)}
+  .leaflet-control-zoom a:hover{background:var(--wash);color:var(--accent)}
+  .leaflet-touch .leaflet-control-zoom{border:1px solid var(--line)}
   .leaflet-control-layers-list{font-size:13px;padding:4px 2px}
   .leaflet-control-attribution{font-size:10.5px}
   /* While drawing a box, the precinct layer must not hit-test at all, or every
@@ -222,7 +226,7 @@
   var map = L.map("map", {
     center: [39.7325, -104.954],
     zoom: 11, minZoom: 9, maxZoom: 18,
-    zoomControl: true, preferCanvas: true
+    zoomControl: false, preferCanvas: true
   });
   L.control.scale({ imperial: true, metric: false, position: "bottomleft" }).addTo(map);
 
@@ -257,6 +261,9 @@
     null,
     { position: "topright", collapsed: true }
   ).addTo(map);
+
+  // Added after the layers control so it stacks directly beneath it.
+  L.control.zoom({ position: "topright", zoomInTitle: "Zoom in", zoomOutTitle: "Zoom out" }).addTo(map);
 
   // ---- precinct layer --------------------------------------------------
   var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };

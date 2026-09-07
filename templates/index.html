@@ -141,7 +141,21 @@
 
   .leaflet-container{font:inherit}
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
-  .leaflet-control-layers,
+  .panel.layers{top:auto;bottom:14px;left:14px;width:286px;max-height:52vh}
+  .panel.layers h1{padding-bottom:10px}
+  .panel.layers .body{padding:0 15px 12px;max-height:44vh}
+  .panel.layers .sec{margin-top:11px;padding-top:10px}
+  .panel.layers .sec.first{margin-top:0;padding-top:10px}
+  .panel.layers .sec h2{margin-bottom:6px}
+  body.has-detail .panel.layers{bottom:calc(28px + var(--detail-h, 72px))}
+  .rows{display:flex;flex-direction:column;gap:1px}
+  .rows label{display:flex;align-items:center;gap:8px;padding:3.5px 6px;
+    font-size:13px;border-radius:5px;cursor:pointer;user-select:none}
+  .rows label:hover{background:var(--wash)}
+  .rows input{margin:0;flex:none;accent-color:var(--accent);cursor:pointer}
+  .rows .swatch{display:inline-block;width:16px;height:4px;border-radius:2px;flex:none}
+  .rows .nosw{width:16px;flex:none}
+
   .leaflet-control-zoom{border-radius:8px;border:1px solid var(--line);
     box-shadow:0 4px 16px rgba(20,30,45,.12);overflow:hidden}
   .leaflet-control-zoom a{color:var(--ink);border-bottom-color:var(--line)}
@@ -220,6 +234,26 @@
   </div>
 </div>
 
+<div class="panel layers" id="layersPanel">
+  <h1>
+    <span class="hactions">
+      <button type="button" id="layersToggle" aria-expanded="true" aria-controls="layersBody"
+              title="Show or hide the layers"><span id="layersChev">&#9662;</span></button>
+    </span>
+    Layers
+  </h1>
+  <div class="body" id="layersBody">
+    <div class="sec first">
+      <h2>Basemap</h2>
+      <div class="rows" id="baseRows"></div>
+    </div>
+    <div class="sec">
+      <h2>Boundaries</h2>
+      <div class="rows" id="overlayRows"></div>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="shareModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
     <button type="button" id="shareClose" aria-label="Close">&times;</button>
@@ -257,6 +291,7 @@
   function setCollapsed(on) {
     panel.classList.toggle("collapsed", on);
     toggle.setAttribute("aria-expanded", on ? "false" : "true");
+    if (typeof sizeLayersPanel === "function") sizeLayersPanel();
   }
   toggle.addEventListener("click", function () {
     setCollapsed(!panel.classList.contains("collapsed"));
@@ -282,7 +317,8 @@
     zoom: 11, minZoom: 9, maxZoom: 18,
     zoomControl: false, preferCanvas: true
   });
-  L.control.scale({ imperial: true, metric: false, position: "bottomleft" }).addTo(map);
+  // bottom-left is the layers panel now, so the scale goes right
+  L.control.scale({ imperial: true, metric: false, position: "bottomright" }).addTo(map);
 
   // District outlines live in their own pane above the precinct canvas, so a
   // selected precinct brought to the front can never cover them, and so they
@@ -323,20 +359,99 @@
   var blank = L.layerGroup([]);
 
   esriGray.addTo(map);
-  var layerControl = L.control.layers(
-    { "Muted gray": esriGray, "Street detail": osmMuted, "No basemap": blank },
-    null,
-    { position: "topright", collapsed: true }
-  ).addTo(map);
+
+  // Leaflet's own layers control is a small icon in the corner that people
+  // miss, so the layers get a panel of their own instead, matching the
+  // controls panel and anchored to the same left edge.
+  var layersPanel = document.querySelector(".panel.layers");
+  var layersToggle = document.getElementById("layersToggle");
+  layersToggle.addEventListener("click", function () {
+    var on = !layersPanel.classList.contains("collapsed");
+    layersPanel.classList.toggle("collapsed", on);
+    layersToggle.setAttribute("aria-expanded", on ? "false" : "true");
+    sizeLayersPanel();
+  });
+
+  // Fit the layers panel to whatever room is left under the controls panel
+  // and above the detail bar, so the two never meet and the last row is
+  // never clipped on a short window.
+  function sizeLayersPanel() {
+    var top = document.querySelector(".panel:not(.layers)");
+    var bar = document.getElementById("detail");
+    var used = top.getBoundingClientRect().bottom + 12;
+    if (bar && !bar.hidden) used += bar.offsetHeight + 14;
+    var avail = window.innerHeight - used - 14;
+    var head = layersPanel.querySelector("h1").offsetHeight;
+    layersPanel.style.maxHeight = Math.max(120, avail) + "px";
+    layersPanel.querySelector(".body").style.maxHeight =
+      Math.max(64, avail - head) + "px";
+  }
+  window.addEventListener("resize", sizeLayersPanel);
+
+  var BASEMAPS = [
+    { label: "Muted gray", layer: esriGray },
+    { label: "Street detail", layer: osmMuted },
+    { label: "No basemap", layer: blank }
+  ];
+
+  (function buildBasemapRows() {
+    var host = document.getElementById("baseRows");
+    BASEMAPS.forEach(function (b, i) {
+      var row = document.createElement("label");
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "basemap";
+      input.checked = map.hasLayer(b.layer);
+      input.addEventListener("change", function () {
+        BASEMAPS.forEach(function (o) {
+          if (map.hasLayer(o.layer)) map.removeLayer(o.layer);
+        });
+        map.addLayer(b.layer);
+      });
+      row.appendChild(input);
+      var sw = document.createElement("span");
+      sw.className = "nosw";
+      row.appendChild(sw);
+      row.appendChild(document.createTextNode(b.label));
+      host.appendChild(row);
+    });
+  })();
+
+  sizeLayersPanel();
+
+  // Stands in for layerControl.addOverlay: one checkbox row per overlay.
+  function addOverlay(layer, label, color) {
+    var host = document.getElementById("overlayRows");
+    var row = document.createElement("label");
+    var input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = map.hasLayer(layer);
+    input.addEventListener("change", function () {
+      if (input.checked) map.addLayer(layer);
+      else map.removeLayer(layer);
+    });
+    row.appendChild(input);
+    var sw = document.createElement("span");
+    if (color) {
+      sw.className = "swatch";
+      sw.style.background = color;
+    } else {
+      sw.className = "nosw";
+    }
+    row.appendChild(sw);
+    row.appendChild(document.createTextNode(label));
+    host.appendChild(row);
+    sizeLayersPanel();
+    // keep the boxes honest when a shared link changes layers programmatically
+    map.on("layeradd layerremove", function () {
+      input.checked = map.hasLayer(layer);
+    });
+  }
 
   // Added after the layers control so it stacks directly beneath it.
   L.control.zoom({ position: "topright", zoomInTitle: "Zoom in", zoomOutTitle: "Zoom out" }).addTo(map);
 
   // ---- precinct layer --------------------------------------------------
-  function swatch(color, label) {
-    return '<span class="swatch" style="background:' + color + '"></span>' + label;
-  }
-
   var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
   var HOVER = { weight: 2, color: "#1d5687", fillOpacity: .30 };
   var PICKED = { weight: 2.5, color: "#b4531f", fillColor: "#e08b3e", fillOpacity: .42 };
@@ -366,6 +481,7 @@
   function hideDetail() {
     detail.hidden = true;
     document.body.classList.remove("has-detail");
+    if (typeof sizeLayersPanel === "function") sizeLayersPanel();
   }
 
   function showDetail(p) {
@@ -405,6 +521,8 @@
 
     detail.hidden = false;
     document.body.classList.add("has-detail");
+    document.body.style.setProperty("--detail-h", detail.offsetHeight + "px");
+    if (typeof sizeLayersPanel === "function") sizeLayersPanel();
   }
 
   document.getElementById("detailClose").addEventListener("click", function () {
@@ -453,7 +571,7 @@
     }
   }).addTo(map);
 
-  layerControl.addOverlay(layers, swatch("#2f6fa8", "Precincts"));
+  addOverlay(layers, "Precincts", "#2f6fa8");
 
   // ---- district zoom ---------------------------------------------------
   var DISTRICTS = [
@@ -742,7 +860,7 @@
           interactive: false,
           style: { stroke: false, fillColor: "#334155", fillOpacity: .38 }
         }).addTo(map);
-        layerControl.addOverlay(maskLayer, "Dim outside Denver");
+        addOverlay(maskLayer, "Dim outside Denver", null);
       }
 
       DISTRICT_LAYERS.forEach(function (d) {
@@ -780,7 +898,7 @@
         });
 
         d.layer = L.layerGroup(parts);
-        layerControl.addOverlay(d.layer, swatch(d.color, d.label));
+        addOverlay(d.layer, d.label, d.color);
       });
 
       // 78 neighbourhood names at county zoom is unreadable mush, so the

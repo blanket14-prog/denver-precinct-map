@@ -56,6 +56,20 @@ def geojson_version(name):
     return cached[1]
 
 
+@app.route("/s/<path:code>")
+def shared(code):
+    """A shared view. The state is encoded in the path itself.
+
+    Render's free tier has no persistent disk and the service sleeps, so a
+    lookup table of short codes would not survive. Encoding the state in the
+    code instead means a shared link never expires and needs no storage. See
+    encodeState()/applyState() in index.html for the format.
+    """
+    if len(code) > 200:
+        return jsonify({"error": "share code too long"}), 400
+    return index()
+
+
 @app.route("/")
 def index():
     resp = app.make_response(

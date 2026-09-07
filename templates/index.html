@@ -141,13 +141,7 @@
 
   .leaflet-container{font:inherit}
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
-  .panel.layers{top:auto;bottom:14px;left:14px;width:286px;max-height:52vh}
-  .panel.layers h1{padding-bottom:10px}
-  .panel.layers .body{padding:0 15px 12px;max-height:44vh}
-  .panel.layers .sec{margin-top:11px;padding-top:10px}
-  .panel.layers .sec.first{margin-top:0;padding-top:10px}
-  .panel.layers .sec h2{margin-bottom:6px}
-  body.has-detail .panel.layers{bottom:calc(28px + var(--detail-h, 72px))}
+  body.has-detail .panel{max-height:calc(100vh - 42px - var(--detail-h, 72px))}
   .rows{display:flex;flex-direction:column;gap:1px}
   .rows label{display:flex;align-items:center;gap:8px;padding:3.5px 6px;
     font-size:13px;border-radius:5px;cursor:pointer;user-select:none}
@@ -231,25 +225,20 @@
         <label for="dHouse">State House</label><select id="dHouse"></select>
       </div>
     </div>
-  </div>
-</div>
 
-<div class="panel layers" id="layersPanel">
-  <h1>
-    <span class="hactions">
-      <button type="button" id="layersToggle" aria-expanded="true" aria-controls="layersBody"
-              title="Show or hide the layers"><span id="layersChev">&#9662;</span></button>
-    </span>
-    Layers
-  </h1>
-  <div class="body" id="layersBody">
-    <div class="sec first">
+    <div class="sec">
       <h2>Basemap</h2>
       <div class="rows" id="baseRows"></div>
     </div>
+
     <div class="sec">
       <h2>Boundaries</h2>
       <div class="rows" id="overlayRows"></div>
+    </div>
+
+    <div class="sec">
+      <h2>Labels</h2>
+      <div class="rows" id="labelRows"></div>
     </div>
   </div>
 </div>
@@ -291,7 +280,6 @@
   function setCollapsed(on) {
     panel.classList.toggle("collapsed", on);
     toggle.setAttribute("aria-expanded", on ? "false" : "true");
-    if (typeof sizeLayersPanel === "function") sizeLayersPanel();
   }
   toggle.addEventListener("click", function () {
     setCollapsed(!panel.classList.contains("collapsed"));
@@ -361,32 +349,7 @@
   esriGray.addTo(map);
 
   // Leaflet's own layers control is a small icon in the corner that people
-  // miss, so the layers get a panel of their own instead, matching the
-  // controls panel and anchored to the same left edge.
-  var layersPanel = document.querySelector(".panel.layers");
-  var layersToggle = document.getElementById("layersToggle");
-  layersToggle.addEventListener("click", function () {
-    var on = !layersPanel.classList.contains("collapsed");
-    layersPanel.classList.toggle("collapsed", on);
-    layersToggle.setAttribute("aria-expanded", on ? "false" : "true");
-    sizeLayersPanel();
-  });
-
-  // Fit the layers panel to whatever room is left under the controls panel
-  // and above the detail bar, so the two never meet and the last row is
-  // never clipped on a short window.
-  function sizeLayersPanel() {
-    var top = document.querySelector(".panel:not(.layers)");
-    var bar = document.getElementById("detail");
-    var used = top.getBoundingClientRect().bottom + 12;
-    if (bar && !bar.hidden) used += bar.offsetHeight + 14;
-    var avail = window.innerHeight - used - 14;
-    var head = layersPanel.querySelector("h1").offsetHeight;
-    layersPanel.style.maxHeight = Math.max(120, avail) + "px";
-    layersPanel.querySelector(".body").style.maxHeight =
-      Math.max(64, avail - head) + "px";
-  }
-  window.addEventListener("resize", sizeLayersPanel);
+  // miss, so basemaps, boundaries and labels are rows in the one panel.
 
   var BASEMAPS = [
     { label: "Muted gray", layer: esriGray },
@@ -417,11 +380,9 @@
     });
   })();
 
-  sizeLayersPanel();
-
   // Stands in for layerControl.addOverlay: one checkbox row per overlay.
-  function addOverlay(layer, label, color) {
-    var host = document.getElementById("overlayRows");
+  function addOverlay(layer, label, color, hostId) {
+    var host = document.getElementById(hostId || "overlayRows");
     var row = document.createElement("label");
     var input = document.createElement("input");
     input.type = "checkbox";
@@ -441,7 +402,6 @@
     row.appendChild(sw);
     row.appendChild(document.createTextNode(label));
     host.appendChild(row);
-    sizeLayersPanel();
     // keep the boxes honest when a shared link changes layers programmatically
     map.on("layeradd layerremove", function () {
       input.checked = map.hasLayer(layer);
@@ -481,7 +441,6 @@
   function hideDetail() {
     detail.hidden = true;
     document.body.classList.remove("has-detail");
-    if (typeof sizeLayersPanel === "function") sizeLayersPanel();
   }
 
   function showDetail(p) {
@@ -522,7 +481,6 @@
     detail.hidden = false;
     document.body.classList.add("has-detail");
     document.body.style.setProperty("--detail-h", detail.offsetHeight + "px");
-    if (typeof sizeLayersPanel === "function") sizeLayersPanel();
   }
 
   document.getElementById("detailClose").addEventListener("click", function () {
@@ -860,7 +818,6 @@
           interactive: false,
           style: { stroke: false, fillColor: "#334155", fillOpacity: .38 }
         }).addTo(map);
-        addOverlay(maskLayer, "Dim outside Denver", null);
       }
 
       DISTRICT_LAYERS.forEach(function (d) {
@@ -901,26 +858,86 @@
         addOverlay(d.layer, d.label, d.color);
       });
 
-      // 78 neighbourhood names at county zoom is unreadable mush, so the
-      // labels only appear once you are zoomed in far enough to place them.
-      function syncLabelZoom() {
-        DISTRICT_LAYERS.forEach(function (d) {
-          if (!d.minLabelZoom || !d.layer) return;
-          var show = map.getZoom() >= d.minLabelZoom;
-          d.layer.eachLayer(function (l) {
-            if (l.getElement && l.getElement()) {
-              l.getElement().style.display = show ? "" : "none";
-            }
-          });
-        });
-      }
-      map.on("zoomend layeradd", syncLabelZoom);
-      syncLabelZoom();
+      // last in the list: a display treatment rather than a boundary
+      if (maskLayer) addOverlay(maskLayer, "Dim outside Denver", null);
+
+      syncLabels();
     })
     .catch(function (err) {
       console.error("[precinct-map] district outlines unavailable: " + err.message);
     });
 
+
+  // ---- big numbers on the map -------------------------------------------
+  // 301 precinct numbers at county zoom is unreadable mush, and so is 78
+  // neighbourhood names, so both only appear once there is room to place
+  // them. Each has a checkbox of its own on top of that.
+  var PRECINCT_LABEL_ZOOM = 14;
+  var showPrecinctLabels = true;
+  var showDistrictLabels = true;
+  var precinctLabels = L.layerGroup([]);
+
+  function buildPrecinctLabels() {
+    features.forEach(function (f) {
+      var p = f.props;
+      if (!p.label) return;
+      precinctLabels.addLayer(L.marker([p.label[1], p.label[0]], {
+        icon: districtLabel(p.precinct, "#1d5687", true),
+        pane: "districtLabels",
+        interactive: false,
+        keyboard: false
+      }));
+    });
+  }
+
+  function syncLabels() {
+    DISTRICT_LAYERS.forEach(function (d) {
+      if (!d.layer) return;
+      var zoomOK = !d.minLabelZoom || map.getZoom() >= d.minLabelZoom;
+      var show = showDistrictLabels && zoomOK;
+      d.layer.eachLayer(function (l) {
+        if (l.getElement && l.getElement()) {
+          l.getElement().style.display = show ? "" : "none";
+        }
+      });
+    });
+
+    var wantPrecincts = showPrecinctLabels &&
+                        map.getZoom() >= PRECINCT_LABEL_ZOOM &&
+                        map.hasLayer(layers);
+    if (wantPrecincts && !map.hasLayer(precinctLabels)) {
+      map.addLayer(precinctLabels);
+    } else if (!wantPrecincts && map.hasLayer(precinctLabels)) {
+      map.removeLayer(precinctLabels);
+    }
+  }
+
+  function addLabelToggle(label, get, set) {
+    var host = document.getElementById("labelRows");
+    var row = document.createElement("label");
+    var input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = get();
+    input.addEventListener("change", function () {
+      set(input.checked);
+      syncLabels();
+    });
+    row.appendChild(input);
+    var sw = document.createElement("span");
+    sw.className = "nosw";
+    row.appendChild(sw);
+    row.appendChild(document.createTextNode(label));
+    host.appendChild(row);
+  }
+
+  addLabelToggle("Precinct numbers",
+    function () { return showPrecinctLabels; },
+    function (v) { showPrecinctLabels = v; });
+  addLabelToggle("District numbers",
+    function () { return showDistrictLabels; },
+    function (v) { showDistrictLabels = v; });
+
+  map.on("zoomend layeradd layerremove", syncLabels);
 
   // ---- shareable links --------------------------------------------------
   // State is encoded into the URL path itself rather than stored server-side:
@@ -1110,6 +1127,8 @@
         n + " precinct" + (n === 1 ? "" : "s") +
         (active ? " · " + commas(active) + " active voters" : " · Denver County");
       buildDistrictMenus();
+      buildPrecinctLabels();
+      syncLabels();
       map.fitBounds(layers.getBounds(), { padding: [20, 20] });
       say("Click any precinct to zoom in and see its details.");
     })

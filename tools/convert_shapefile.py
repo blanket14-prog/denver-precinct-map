@@ -449,6 +449,17 @@ def main():
             props["inactive"] = reg["inactive"]
             props["registered"] = reg["total"]
 
+        # anchor for the big precinct number: a point guaranteed inside the
+        # shape, so the label never lands outside a concave precinct
+        try:
+            from shapely.geometry import MultiPolygon as _MP
+            main = (max(geom.geoms, key=lambda g: g.area)
+                    if isinstance(geom, _MP) else geom)
+            anchor = main.representative_point()
+            props["label"] = [round(anchor.x, 6), round(anchor.y, 6)]
+        except Exception as exc:
+            print("  ! no label anchor for precinct %s: %s" % (num, exc))
+
         feats.append({"type": "Feature", "properties": props,
                       "geometry": mapping(geom.simplify(SIMPLIFY_DEG,
                                                         preserve_topology=True))})

@@ -169,6 +169,8 @@ DISTRICT_LAYERS = [
     ("council", "council", "City Council"),
     ("school",  "school_board", "School Board"),
     ("rtd",     "rtd", "RTD"),
+    ("senate",  "senate", "State Senate"),
+    ("house",   "house", "State House"),
 ]
 
 
@@ -186,15 +188,67 @@ def build_districts(feats, out_path):
     groups = {}
     for f in feats:
         props = f["properties"]
+        geom = _shape(f["geometry"])
         for layer, key, _label in DISTRICT_LAYERS:
             val = props.get(key)
             if val:
-                groups.setdefault((layer, val), []).append(_shape(f["geometry"]))
+                groups.setdefault((layer, val), []).append(geom)
 
     # Dissolve to polygons first, then emit the BOUNDARY LINES.
     # Emitting polygons draws every interior edge twice, once from each of the
     # two districts that share it, which doubles its apparent weight. Unioning
     # the boundaries collapses each shared edge to a single line.
+    from shapely.geometry import Polygon, MultiPolygon, Point
+
+    def clean(geom):
+        """Drop hole rings and crumbs left by the sliver-closing buffer.
+
+        Closing hairline gaps between precincts leaves pinprick holes and
+        detached specks inside a district. Their boundaries were rendering as
+        short line fragments floating in the middle of the district, which
+        look like boundaries but are not. No Denver council, school board or
+        RTD district has a genuine hole, so every interior ring is an
+        artefact and can go.
+        """
+        parts = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
+        kept = []
+        for part in parts:
+            if part.is_empty:
+                continue
+            solid = Polygon(part.exterior)          # exterior ring only
+            kept.append(solid)
+        if not kept:
+            return geom
+        biggest = max(p.area for p in kept)
+        # anything under a thousandth of the main body is a crumb
+        kept = [p for p in kept if p.area >= biggest / 1000.0]
+        return kept[0] if len(kept) == 1 else MultiPolygon(kept)
+
+    def label_point(geom, precinct_geoms):
+        """Where to put the district's big label.
+
+        The pole of inaccessibility alone puts council 11, school board 4 and
+        RTD B out in the middle of DIA, because the airport is a huge empty
+        polygon that dominates the district's area. Aim instead for the mean
+        of the district's precinct centres, which sits where the precincts
+        actually are, and fall back to the pole when that mean lands outside
+        a concave district.
+        """
+        parts = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
+        main = max(parts, key=lambda g: g.area)
+
+        pts = [g.centroid for g in precinct_geoms]
+        if pts:
+            mean = Point(sum(p.x for p in pts) / len(pts),
+                         sum(p.y for p in pts) / len(pts))
+            if geom.contains(mean):
+                return mean
+        try:
+            from shapely.ops import polylabel
+            return polylabel(main, tolerance=0.0005)
+        except Exception:
+            return main.representative_point()
+
     by_layer = {}
     for (layer, val), geoms in sorted(groups.items()):
         merged = unary_union([g.buffer(0) for g in geoms])
@@ -204,7 +258,8 @@ def build_districts(feats, out_path):
         merged = (merged
                   .buffer(0.0000015, quad_segs=1, join_style=2)
                   .buffer(-0.0000015, quad_segs=1, join_style=2))
-        by_layer.setdefault(layer, []).append((val, merged, len(geoms)))
+        merged = clean(merged)
+        by_layer.setdefault(layer, []).append((val, merged, geoms))
 
     out = []
     for layer, entries in sorted(by_layer.items()):
@@ -213,11 +268,21 @@ def build_districts(feats, out_path):
         out.append({
             "type": "Feature",
             "properties": {
+                "kind": "outline",
                 "layer": layer,
                 "districts": [e[0] for e in entries],
             },
             "geometry": mapping(lines),
         })
+        for val, poly, precinct_geoms in entries:
+            pt = label_point(poly, precinct_geoms)
+            out.append({
+                "type": "Feature",
+                "properties": {"kind": "label", "layer": layer,
+                               "district": val,
+                               "precincts": len(precinct_geoms)},
+                "geometry": mapping(Point(pt.x, pt.y)),
+            })
 
     def rnd(o):
         if isinstance(o, float):
@@ -236,7 +301,7 @@ def build_districts(feats, out_path):
           % (out_path,
              ", ".join("%s: %d districts" % (f["properties"]["layer"],
                                              len(f["properties"]["districts"]))
-                       for f in out),
+                       for f in out if f["properties"]["kind"] == "outline"),
              os.path.getsize(out_path) // 1024))
 
 

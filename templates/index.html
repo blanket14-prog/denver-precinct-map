@@ -125,8 +125,17 @@
   .leaflet-control-zoom a:hover{background:var(--wash);color:var(--accent)}
   .leaflet-touch .leaflet-control-zoom{border:1px solid var(--line)}
   .leaflet-control-layers-list{font-size:13px;padding:4px 2px}
-  .leaflet-control-layers .swatch{display:inline-block;width:14px;height:3px;
+  .leaflet-control-layers .swatch{display:inline-block;width:14px;height:4px;
     border-radius:2px;margin:0 6px 0 2px;vertical-align:middle}
+  /* Big district labels. The halo keeps them legible over streets and parks. */
+  .dlabel{
+    position:absolute;transform:translate(-50%,-50%);
+    font:800 30px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    letter-spacing:-.5px;white-space:nowrap;
+    -webkit-text-stroke:5px rgba(255,255,255,.92);paint-order:stroke fill;
+    text-shadow:0 1px 2px rgba(255,255,255,.9);
+  }
+  @media (max-width:700px){ .dlabel{font-size:24px;-webkit-text-stroke-width:4px} }
   .leaflet-control-layers-separator{margin:6px 0;border-top:1px solid var(--line)}
   .leaflet-control-attribution{font-size:10.5px}
   /* While drawing a box, the precinct layer must not hit-test at all, or every
@@ -239,6 +248,9 @@
   map.createPane("districts");
   map.getPane("districts").style.zIndex = 450;
   map.getPane("districts").style.pointerEvents = "none";
+  map.createPane("districtLabels");
+  map.getPane("districtLabels").style.zIndex = 460;
+  map.getPane("districtLabels").style.pointerEvents = "none";
 
   // ---- basemaps (both key-free) ---------------------------------------
   var ESRI_ATTR =
@@ -642,11 +654,21 @@
   var DISTRICT_LAYERS = [
     { key: "council", label: "City Council", color: "#0f766e" },
     { key: "school",  label: "School Board", color: "#7c3aed" },
-    { key: "rtd",     label: "RTD",          color: "#a16207" }
+    { key: "rtd",     label: "RTD",          color: "#a16207" },
+    { key: "senate",  label: "State Senate", color: "#be123c" },
+    { key: "house",   label: "State House",  color: "#0f172a" }
   ];
 
   function swatch(color, label) {
     return '<span class="swatch" style="background:' + color + '"></span>' + label;
+  }
+
+  function districtLabel(text, color) {
+    return L.divIcon({
+      className: "",
+      html: '<span class="dlabel" style="color:' + color + '">' + esc(text) + "</span>",
+      iconSize: null
+    });
   }
 
   fetch("{{ districts_url }}")
@@ -655,14 +677,16 @@
       return res.json();
     })
     .then(function (geo) {
+      var feats = geo.features || [];
       DISTRICT_LAYERS.forEach(function (d) {
-        var feats = (geo.features || []).filter(function (f) {
-          return f.properties && f.properties.layer === d.key;
+        var outline = feats.filter(function (f) {
+          return f.properties && f.properties.kind === "outline" &&
+                 f.properties.layer === d.key;
         });
-        if (!feats.length) return;
-        d.layer = L.geoJSON(
-          { type: "FeatureCollection", features: feats },
-          {
+        if (!outline.length) return;
+
+        var parts = [
+          L.geoJSON({ type: "FeatureCollection", features: outline }, {
             pane: "districts",
             interactive: false,
             style: {
@@ -670,10 +694,25 @@
               weight: 4,          // 4x the precinct weight of 1
               opacity: 1,
               fill: false,
-              lineJoin: "round"
+              lineJoin: "round",
+              lineCap: "round"
             }
-          }
-        );
+          })
+        ];
+
+        feats.forEach(function (f) {
+          var p = f.properties || {};
+          if (p.kind !== "label" || p.layer !== d.key) return;
+          var c = f.geometry.coordinates;
+          parts.push(L.marker([c[1], c[0]], {
+            icon: districtLabel(p.district, d.color),
+            pane: "districtLabels",
+            interactive: false,
+            keyboard: false
+          }));
+        });
+
+        d.layer = L.layerGroup(parts);
         layerControl.addOverlay(d.layer, swatch(d.color, d.label));
       });
     })

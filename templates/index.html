@@ -75,7 +75,8 @@
   .sec.fold h2 .fc{font-size:11px;transition:transform .18s ease}
   .sec.fold.closed h2 .fc{transform:rotate(-90deg)}
   .sec.fold:not(.closed) h2{margin-bottom:7px}
-  .sec.fold.closed .rows{display:none}
+  .sec.fold.closed .rows,
+  .sec.fold.closed .dist{display:none}
   .btnrow{display:flex;gap:7px;margin-bottom:10px}
   .btnrow.always{margin:0;padding:0 15px 11px;flex:none}
   .btnrow button{
@@ -226,8 +227,8 @@
       <button type="submit" id="findBtn">Find</button>
     </form>
 
-    <div class="sec first">
-      <h2>Zoom to a district</h2>
+    <div class="sec first fold closed" id="distSec">
+      <h2><button type="button" aria-expanded="false">Zoom to a district<span class="fc">&#9662;</span></button></h2>
       <div class="dist">
         <label for="dCouncil">City Council</label><select id="dCouncil"></select>
         <label for="dSchool">School Board</label><select id="dSchool"></select>
@@ -1119,6 +1120,12 @@
       if (sel) {
         sel.value = wantFilter.val;
         sel.dispatchEvent(new Event("change", { bubbles: true }));
+        var sec = document.getElementById("distSec");
+        if (sec) {
+          sec.classList.remove("closed");
+          var btn = sec.querySelector("h2 button");
+          if (btn) btn.setAttribute("aria-expanded", "true");
+        }
       }
     }
     if (wantPrecinct && byNumber[wantPrecinct]) {

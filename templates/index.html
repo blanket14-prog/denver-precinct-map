@@ -41,15 +41,16 @@
 
   .leaflet-popup-content-wrapper{border-radius:9px;box-shadow:0 8px 28px rgba(20,30,45,.18)}
   .leaflet-popup-content{margin:0;width:auto!important}
-  .pop{padding:13px 16px 14px;min-width:210px}
+  .pop{padding:13px 16px 14px;min-width:224px}
   .pop .num{font-size:27px;font-weight:680;letter-spacing:-.5px;line-height:1.05}
   .pop .lbl{font-size:10.5px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
   .pop .hood{margin-top:3px;font-size:13px;color:#48525f}
-  .pop .stat{margin:11px 0 0;padding:8px 10px;background:#f2f6fa;border-radius:6px;
-    display:flex;align-items:baseline;gap:7px}
+  .pop .stat{margin:11px 0 0;padding:8px 10px;background:#f2f6fa;border-radius:6px}
+  .pop .stat .row{display:flex;align-items:baseline;gap:7px}
   .pop .stat .v{font-size:17px;font-weight:660;font-variant-numeric:tabular-nums;color:#23557f}
   .pop .stat .k{font-size:11.5px;color:var(--muted)}
-  .pop .stat.none{display:block;font-size:11.5px;color:#98a2ae;background:#f6f7f9}
+  .pop .stat .sub{margin-top:2px;font-size:11px;color:#8b95a2;font-variant-numeric:tabular-nums}
+  .pop .stat.none{font-size:11.5px;color:#98a2ae;background:#f6f7f9}
   .pop .dir{margin-top:9px;font-size:12px;color:#48525f}
   .pop dl{display:grid;grid-template-columns:auto auto;gap:4px 14px;margin:11px 0 0;
     padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
@@ -140,11 +141,23 @@
       ["Congress", p.cong]
     ].filter(function (r) { return r[1]; });
 
-    var voters =
-      typeof p.registered === "number"
-        ? '<div class="stat"><span class="v">' + commas(p.registered) +
-          '</span><span class="k">registered voters</span></div>'
-        : '<div class="stat none">Registered voter count not loaded</div>';
+    var voters;
+    if (typeof p.active === "number") {
+      voters =
+        '<div class="stat">' +
+          '<div class="row"><span class="v">' + commas(p.active) + "</span>" +
+          '<span class="k">active voters</span></div>' +
+          (typeof p.registered === "number"
+            ? '<div class="sub">' + commas(p.registered) +
+              " registered, " + commas(p.inactive || 0) + " inactive</div>"
+            : "") +
+        "</div>";
+    } else if (typeof p.registered === "number") {
+      voters = '<div class="stat"><div class="row"><span class="v">' +
+        commas(p.registered) + '</span><span class="k">registered voters</span></div></div>';
+    } else {
+      voters = '<div class="stat none">Registered voter count not loaded</div>';
+    }
 
     return (
       '<div class="pop">' +
@@ -197,8 +210,13 @@
     .then(function (geo) {
       layers.addData(geo);
       var n = (geo.features || []).length;
+      var active = (geo.features || []).reduce(function (sum, f) {
+        var a = f.properties && f.properties.active;
+        return sum + (typeof a === "number" ? a : 0);
+      }, 0);
       document.getElementById("count").textContent =
-        n + " precinct" + (n === 1 ? "" : "s") + " · Denver County";
+        n + " precinct" + (n === 1 ? "" : "s") +
+        (active ? " · " + commas(active) + " active voters" : " · Denver County");
       map.fitBounds(layers.getBounds(), { padding: [20, 20] });
       say("Click any precinct to see its number.");
     })

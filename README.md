@@ -6,13 +6,28 @@ with its number, neighborhood, and district assignments.
 
 ## Data
 
-Source: Denver Open Data, `ELEC_ELECTIONPRECINCTS_A` shapefile.
-Converted from NAD83(HARN) StatePlane Colorado Central (ft) to WGS84,
-simplified to ~1.5 m tolerance, and stored as `data/precincts.geojson`
-(301 features, ~280 KB).
+**Boundaries** — Denver Open Data, `ELEC_ELECTIONPRECINCTS_A` shapefile.
+Reprojected from NAD83(HARN) StatePlane Colorado Central (ftUS) to WGS84 and
+simplified to ~1.5 m.
 
-To regenerate after a new shapefile drop, run `tools/convert_shapefile.py`
-with the shapefile path.
+**School board district** — joined from Denver Open Data's DPS Board shapefile
+by largest-area overlap, because the precinct shapefile's own `DPS_DIST` column
+is empty on all 301 records. The two at-large directors (`board_dist` 0) are
+citywide and excluded from the join.
+
+**Registered voters** — Colorado Secretary of State monthly voter registration
+statistics workbook, "Voter Counts by Precinct" sheet, matched on the 10-digit
+precinct code (301 of 301 matched). Download the current month from
+https://www.sos.state.co.us/pubs/elections/VoterRegNumbers/VoterRegNumbers.html
+and drop it anywhere under the maps directory; the converter finds any
+`*Statistics*.xlsx`. A `data/registered_voters.csv` with a precinct column and
+a count column works as a fallback.
+
+Regenerate with:
+
+    python3 tools/convert_shapefile.py /path/to/Maps data/precincts.geojson
+
+Output is `data/precincts.geojson`, 301 features, ~307 KB.
 
 ## Run locally
 

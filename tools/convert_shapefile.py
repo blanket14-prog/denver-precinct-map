@@ -3,8 +3,9 @@
 
 Adds, per precinct:
   * DPS school board district, by largest-area overlap with the DPS Board shapefile
-  * registered voter count, if data/registered_voters.csv is present
-    (CSV needs a precinct column and a count column; header names are sniffed)
+  * active / inactive / total registered voters, from a Colorado SOS monthly
+    statistics workbook found under MAPS_DIR (its "Voter Counts by Precinct"
+    sheet), or from data/registered_voters.csv as a fallback
 
 Usage:
     python3 tools/convert_shapefile.py [MAPS_DIR] [OUT]
@@ -26,8 +27,6 @@ from shapely.ops import transform as shp_transform
 
 MAPS = sys.argv[1] if len(sys.argv) > 1 else "../Maps"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "data/precincts.geojson"
-VOTER_CSV = os.path.join(os.path.dirname(OUT) or ".", "registered_voters.csv")
-
 SIMPLIFY_DEG = 0.000015  # ~1.5 m
 
 
@@ -66,15 +65,72 @@ def load_school_board(maps_dir):
     return out
 
 
-def load_voter_counts(path):
-    """{precinct: registered_count} from an optional CSV."""
+def load_voter_counts(maps_dir, data_dir):
+    """{precinct_code: {"active","inactive","total"}} plus the source label.
+
+    Prefers a Colorado SOS monthly statistics workbook (its "Voter Counts by
+    Precinct" sheet keys on the 10-digit precinct code, which matches the
+    shapefile's PRECINCT_C exactly). Falls back to a hand-made CSV.
+    """
+    for xlsx in sorted(glob.glob(os.path.join(maps_dir, "**", "*Statistics*.xlsx"),
+                                 recursive=True)):
+        got = _from_sos_workbook(xlsx)
+        if got:
+            return got, os.path.basename(xlsx)
+
+    csv_path = os.path.join(data_dir, "registered_voters.csv")
+    got = _from_csv(csv_path)
+    if got:
+        return got, os.path.basename(csv_path)
+
+    print("  ! no voter data found; registered voters will be blank")
+    return {}, ""
+
+
+def _from_sos_workbook(path, county="Denver"):
+    try:
+        import openpyxl
+    except ImportError:
+        print("  ! openpyxl not installed, cannot read %s" % path)
+        return {}
+    try:
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    except Exception as exc:
+        print("  ! could not open %s: %s" % (path, exc))
+        return {}
+
+    sheet = next((n for n in wb.sheetnames if "precinct" in n.lower()), None)
+    if not sheet:
+        print("  ! %s has no precinct sheet (sheets: %s)" % (path, wb.sheetnames))
+        return {}
+
+    out = {}
+    for row in wb[sheet].iter_rows(min_row=2, values_only=True):
+        if not row or len(row) < 5:
+            continue
+        if not row[0] or str(row[0]).strip().lower() != county.lower():
+            continue
+        code = str(row[1]).strip().split(".")[0]
+        try:
+            active, inactive, total = (int(row[2] or 0), int(row[3] or 0),
+                                       int(row[4] or 0))
+        except (TypeError, ValueError):
+            continue
+        out[code] = {"active": active, "inactive": inactive, "total": total}
+
+    if out:
+        print("  voter data: %s sheet %r, %d %s precincts"
+              % (os.path.basename(path), sheet, len(out), county))
+    return out
+
+
+def _from_csv(path):
+    """Fallback CSV: a precinct column (number or 10-digit code) and a count."""
     if not os.path.exists(path):
-        print("  ! %s not found; registered voters will be blank" % path)
         return {}
     with open(path, newline="", encoding="utf-8-sig") as fh:
         rows = list(csv.DictReader(fh))
     if not rows:
-        print("  ! %s is empty" % path)
         return {}
     cols = list(rows[0].keys())
 
@@ -87,29 +143,25 @@ def load_voter_counts(path):
         return None
 
     pcol = pick(["precinct"])
-    vcol = (pick(["registered", "total", "active", "voters", "count"],
-                 exclude=("precinct",)))
-    if not pcol or not vcol:
-        print("  ! could not find precinct/count columns in %s (saw %s)" % (path, cols))
+    acol = pick(["active"], exclude=("in",)) or pick(["registered", "total", "count"])
+    if not pcol or not acol:
+        print("  ! could not find precinct/count columns in %s (saw %s)"
+              % (path, cols))
         return {}
-    print("  voter CSV: precinct column %r, count column %r" % (pcol, vcol))
 
-    counts = {}
+    out = {}
     for row in rows:
-        raw = (row.get(pcol) or "").strip()
-        val = (row.get(vcol) or "").strip().replace(",", "")
-        if not raw or not val:
+        key = (row.get(pcol) or "").strip().split(".")[0]
+        val = (row.get(acol) or "").strip().replace(",", "")
+        if not key or not val:
             continue
-        # Denver precincts appear as "214" or as the 10-digit code "1310216214"
-        key = raw.split(".")[0]
-        if len(key) > 4:
-            key = key[-3:]
         try:
-            counts[key.lstrip("0") or key] = int(float(val))
+            n = int(float(val))
         except ValueError:
             continue
-    print("  voter counts loaded: %d precincts" % len(counts))
-    return counts
+        out[key] = {"active": n, "inactive": 0, "total": n}
+    print("  voter data: %s, %d precincts" % (os.path.basename(path), len(out)))
+    return out
 
 
 def main():
@@ -118,7 +170,7 @@ def main():
         sys.exit("FATAL: precinct shapefile not found at %s.shp" % src)
 
     boards = load_school_board(MAPS)
-    voters = load_voter_counts(VOTER_CSV)
+    voters, voter_source = load_voter_counts(MAPS, os.path.dirname(OUT) or ".")
 
     r = shapefile.Reader(src)
     fields = [f[0] for f in r.fields[1:]]
@@ -143,13 +195,14 @@ def main():
         if not board:
             no_board.append(num)
 
-        reg = voters.get(num)
+        code = str(rec.get("PRECINCT_C", "")).strip()
+        reg = voters.get(code) or voters.get(num)
         if reg is None:
             no_voters += 1
 
         props = {
             "precinct": num,
-            "precinct_code": str(rec.get("PRECINCT_C", "")).strip(),
+            "precinct_code": code,
             "cong": str(rec.get("CONG_DIST", "")).strip(),
             "senate": str(rec.get("SENATE_DIS", "")).strip(),
             "house": str(rec.get("HOUSE_DIST", "")).strip(),
@@ -159,7 +212,9 @@ def main():
             "neighborhood": str(rec.get("STAT_NBHD", "")).strip(),
         }
         if reg is not None:
-            props["registered"] = reg
+            props["active"] = reg["active"]
+            props["inactive"] = reg["inactive"]
+            props["registered"] = reg["total"]
 
         feats.append({"type": "Feature", "properties": props,
                       "geometry": mapping(geom.simplify(SIMPLIFY_DEG,
@@ -178,9 +233,11 @@ def main():
         return o
 
     os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
+    fc = {"type": "FeatureCollection", "features": feats}
+    if voter_source:
+        fc["voter_source"] = voter_source
     with open(OUT, "w") as fh:
-        json.dump(rnd({"type": "FeatureCollection", "features": feats}), fh,
-                  separators=(",", ":"))
+        json.dump(rnd(fc), fh, separators=(",", ":"))
 
     print("\nwrote %s  (%d features, %d KB)"
           % (OUT, len(feats), os.path.getsize(OUT) // 1024))

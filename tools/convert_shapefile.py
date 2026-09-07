@@ -191,7 +191,11 @@ def build_districts(feats, out_path):
             if val:
                 groups.setdefault((layer, val), []).append(_shape(f["geometry"]))
 
-    out = []
+    # Dissolve to polygons first, then emit the BOUNDARY LINES.
+    # Emitting polygons draws every interior edge twice, once from each of the
+    # two districts that share it, which doubles its apparent weight. Unioning
+    # the boundaries collapses each shared edge to a single line.
+    by_layer = {}
     for (layer, val), geoms in sorted(groups.items()):
         merged = unary_union([g.buffer(0) for g in geoms])
         # Close hairline slivers where neighbouring precincts share an edge but
@@ -200,12 +204,19 @@ def build_districts(feats, out_path):
         merged = (merged
                   .buffer(0.0000015, quad_segs=1, join_style=2)
                   .buffer(-0.0000015, quad_segs=1, join_style=2))
-        merged = merged.simplify(0.00001, preserve_topology=True)
+        by_layer.setdefault(layer, []).append((val, merged, len(geoms)))
+
+    out = []
+    for layer, entries in sorted(by_layer.items()):
+        lines = unary_union([e[1].boundary for e in entries])
+        lines = lines.simplify(0.00001, preserve_topology=True)
         out.append({
             "type": "Feature",
-            "properties": {"layer": layer, "district": val,
-                           "precincts": len(geoms)},
-            "geometry": mapping(merged),
+            "properties": {
+                "layer": layer,
+                "districts": [e[0] for e in entries],
+            },
+            "geometry": mapping(lines),
         })
 
     def rnd(o):
@@ -221,12 +232,11 @@ def build_districts(feats, out_path):
         json.dump(rnd({"type": "FeatureCollection", "features": out}), fh,
                   separators=(",", ":"))
 
-    counts = {}
-    for f in out:
-        counts[f["properties"]["layer"]] = counts.get(f["properties"]["layer"], 0) + 1
     print("wrote %s  (%s, %d KB)"
           % (out_path,
-             ", ".join("%s: %d" % (k, v) for k, v in sorted(counts.items())),
+             ", ".join("%s: %d districts" % (f["properties"]["layer"],
+                                             len(f["properties"]["districts"]))
+                       for f in out),
              os.path.getsize(out_path) // 1024))
 
 

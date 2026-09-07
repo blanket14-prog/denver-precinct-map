@@ -634,9 +634,11 @@
   });
 
   // ---- district overlays -----------------------------------------------
-  // Drawn at twice the precinct line weight so they read over the precinct
-  // grid. Boundaries are dissolved from the precincts themselves, so every
-  // district edge follows precinct edges exactly.
+  // Drawn at 4x the precinct line weight so they read clearly over the
+  // precinct grid. Boundaries are dissolved from the precincts themselves, so
+  // every district edge follows precinct edges exactly, and the converter
+  // emits deduplicated boundary lines so a shared edge between two districts
+  // is drawn once rather than twice (which would double its apparent weight).
   var DISTRICT_LAYERS = [
     { key: "council", label: "City Council", color: "#0f766e" },
     { key: "school",  label: "School Board", color: "#7c3aed" },
@@ -665,8 +667,8 @@
             interactive: false,
             style: {
               color: d.color,
-              weight: 2,          // twice the precinct weight of 1
-              opacity: .95,
+              weight: 4,          // 4x the precinct weight of 1
+              opacity: 1,
               fill: false,
               lineJoin: "round"
             }

@@ -22,10 +22,20 @@
     box-shadow:0 6px 24px rgba(20,30,45,.12);display:flex;flex-direction:column;
     max-height:calc(100vh - 28px);
   }
-  .panel h1{margin:0;padding:13px 15px 11px;font-size:15px;font-weight:650;letter-spacing:.1px;
-    border-bottom:1px solid var(--line);flex:none}
-  .panel h1 span{display:block;font-size:11.5px;font-weight:450;color:var(--muted);margin-top:2px;letter-spacing:.2px}
+  .panel h1{margin:0;padding:13px 15px 11px 15px;font-size:15px;font-weight:650;letter-spacing:.1px;
+    flex:none;position:relative}
+  .panel h1 span#count{display:block;font-size:11.5px;font-weight:450;color:var(--muted);
+    margin-top:2px;letter-spacing:.2px}
+  .panel h1 button{position:absolute;top:10px;right:10px;width:26px;height:26px;padding:0;
+    display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);
+    background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer;line-height:1}
+  .panel h1 button:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .panel h1 button #chev{transition:transform .18s ease}
+  .panel.collapsed h1 button #chev{transform:rotate(-90deg)}
+  .panel .note{padding:0 15px 12px;border-bottom:1px solid var(--line);flex:none}
+  .panel.collapsed .note{border-bottom:0;padding-bottom:13px}
   .panel .body{padding:12px 15px 14px;overflow-y:auto}
+  .panel.collapsed .body{display:none}
 
   .search{display:flex;gap:7px}
   .search input{
@@ -39,10 +49,11 @@
   }
   .search button:hover{background:#27608f}
   .search button:disabled{background:#9db6cb;cursor:default}
-  .note{margin-top:9px;font-size:12px;color:var(--muted);min-height:16px}
+  .note{font-size:12px;color:var(--muted);min-height:16px}
   .note.err{color:#b03a3a}
 
   .sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .sec.first{margin-top:12px}
   .sec h2{margin:0 0 9px;font-size:10.5px;font-weight:600;letter-spacing:.9px;
     text-transform:uppercase;color:var(--muted)}
   .btnrow{display:flex;gap:7px;margin-bottom:10px}
@@ -61,23 +72,39 @@
   }
   .dist select:focus{border-color:var(--accent-soft);background:#fff}
 
-  .leaflet-popup-content-wrapper{border-radius:9px;box-shadow:0 8px 28px rgba(20,30,45,.18)}
-  .leaflet-popup-content{margin:0;width:auto!important}
-  .pop{padding:13px 16px 14px;min-width:224px}
-  .pop .num{font-size:27px;font-weight:680;letter-spacing:-.5px;line-height:1.05}
-  .pop .lbl{font-size:10.5px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
-  .pop .hood{margin-top:3px;font-size:13px;color:#48525f}
-  .pop .stat{margin:11px 0 0;padding:8px 10px;background:var(--wash);border-radius:6px}
-  .pop .stat .row{display:flex;align-items:baseline;gap:7px}
-  .pop .stat .v{font-size:17px;font-weight:660;font-variant-numeric:tabular-nums;color:#23557f}
-  .pop .stat .k{font-size:11.5px;color:var(--muted)}
-  .pop .stat .sub{margin-top:2px;font-size:11px;color:#8b95a2;font-variant-numeric:tabular-nums}
-  .pop .stat.none{font-size:11.5px;color:#98a2ae;background:#f6f7f9}
-  .pop dl{display:grid;grid-template-columns:auto auto;gap:4px 14px;margin:11px 0 0;
-    padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
-  .pop dt{color:var(--muted)}
-  .pop dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
-  .pop .code{margin-top:9px;font-size:11px;color:#98a2ae;font-variant-numeric:tabular-nums}
+  /* Precinct details live in a bar along the bottom so the shape itself
+     is never covered by a floating window. */
+  .detail{
+    position:absolute;left:14px;right:14px;bottom:14px;z-index:1000;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 6px 24px rgba(20,30,45,.14);
+    padding:12px 44px 12px 16px;
+    display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  }
+  .detail[hidden]{display:none}
+  .detail #detailClose{
+    position:absolute;top:8px;right:9px;width:26px;height:26px;padding:0;
+    font-size:17px;line-height:1;color:var(--muted);background:#fff;
+    border:1px solid var(--line);border-radius:6px;cursor:pointer;
+  }
+  .detail #detailClose:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .d-id{display:flex;align-items:baseline;gap:9px;flex:none}
+  .d-lbl{font-size:10.5px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--muted)}
+  .d-num{font-size:25px;font-weight:680;letter-spacing:-.5px;line-height:1}
+  .d-hood{font-size:13px;color:#48525f}
+  .d-stat{display:flex;align-items:baseline;gap:8px;flex:none;
+    padding:7px 12px;background:var(--wash);border-radius:6px}
+  .d-stat .v{font-size:17px;font-weight:660;font-variant-numeric:tabular-nums;color:#23557f}
+  .d-stat .k{font-size:11.5px;color:var(--muted)}
+  .d-stat .sub{font-size:11px;color:#8b95a2;font-variant-numeric:tabular-nums}
+  .d-stat.none{display:block;font-size:11.5px;color:#98a2ae;background:#f6f7f9}
+  .d-rows{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12.5px;flex:1 1 auto;min-width:0}
+  .d-rows .r{display:flex;gap:6px;align-items:baseline;white-space:nowrap}
+  .d-rows .r b{font-weight:600;font-variant-numeric:tabular-nums}
+  .d-rows .r span{color:var(--muted)}
+  .d-code{font-size:11px;color:#98a2ae;font-variant-numeric:tabular-nums;flex:none}
+  /* keep Leaflet's scale bar and attribution clear of the detail bar */
+  body.has-detail .leaflet-bottom{bottom:86px}
 
   .leaflet-container{font:inherit}
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
@@ -85,12 +112,19 @@
     box-shadow:0 4px 16px rgba(20,30,45,.12)}
   .leaflet-control-layers-list{font-size:13px;padding:4px 2px}
   .leaflet-control-attribution{font-size:10.5px}
+  /* While drawing a box, the precinct layer must not hit-test at all, or every
+     pass of the cursor lights up a precinct and pops its number tooltip. */
   .boxzoom-on{cursor:crosshair!important}
-  .boxzoom-on .leaflet-interactive{cursor:crosshair!important}
+  .boxzoom-on .leaflet-overlay-pane{pointer-events:none!important}
+  .boxzoom-on .leaflet-interactive{pointer-events:none!important;cursor:crosshair!important}
+  .boxzoom-on .leaflet-tooltip{display:none!important}
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
 
-  @media (max-width:560px){
-    .panel{width:auto;left:10px;right:10px;top:10px;max-height:calc(100vh - 20px)}
+  @media (max-width:700px){
+    .panel{width:auto;left:10px;right:10px;top:10px;max-height:60vh}
+    .detail{left:10px;right:10px;bottom:10px;gap:10px;padding:11px 40px 11px 13px}
+    .d-num{font-size:21px}
+    body.has-detail .leaflet-bottom{bottom:150px}
   }
 </style>
 </head>
@@ -98,15 +132,19 @@
 <div id="map"></div>
 
 <div class="panel">
-  <h1>Denver Precincts<span id="count">Loading precincts…</span></h1>
-  <div class="body">
+  <h1>
+    <button type="button" id="toggle" aria-expanded="true" aria-controls="panelBody"
+            title="Show or hide the controls"><span id="chev">&#9662;</span></button>
+    Denver Precincts<span id="count">Loading precincts…</span>
+  </h1>
+  <div class="note" id="note">Click any precinct to zoom in and see its details.</div>
+  <div class="body" id="panelBody">
     <form class="search" id="searchForm" autocomplete="off">
       <input id="q" type="text" placeholder="Address or precinct number" aria-label="Address or precinct number">
       <button type="submit" id="findBtn">Find</button>
     </form>
-    <div class="note" id="note">Click any precinct to zoom in and see its details.</div>
 
-    <div class="sec">
+    <div class="sec first">
       <h2>Zoom to</h2>
       <div class="btnrow">
         <button type="button" id="zoomDenver">Denver</button>
@@ -123,13 +161,34 @@
   </div>
 </div>
 
+<div class="detail" id="detail" hidden>
+  <button type="button" id="detailClose" aria-label="Close precinct details">&times;</button>
+  <div class="d-id">
+    <span class="d-lbl">Precinct</span>
+    <span class="d-num" id="dNum"></span>
+    <span class="d-hood" id="dHood"></span>
+  </div>
+  <div class="d-stat" id="dStat"></div>
+  <div class="d-rows" id="dRows"></div>
+  <div class="d-code" id="dCode"></div>
+</div>
+
 <script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
 <script>
 (function () {
   "use strict";
 
-  var PAD = [70, 70];          // padding when fitting a single precinct
   var note = document.getElementById("note");
+  var panel = document.querySelector(".panel");
+  var toggle = document.getElementById("toggle");
+
+  function setCollapsed(on) {
+    panel.classList.toggle("collapsed", on);
+    toggle.setAttribute("aria-expanded", on ? "false" : "true");
+  }
+  toggle.addEventListener("click", function () {
+    setCollapsed(!panel.classList.contains("collapsed"));
+  });
 
   function say(msg, isErr) {
     note.textContent = msg;
@@ -174,9 +233,15 @@
       "contributors | Precincts: Denver Open Data | Voters: CO Secretary of State",
     maxZoom: 19, className: "muted-tiles"
   });
+  // "No basemap" is a real, empty layer: precincts on a flat ground, no streets.
+  var blank = L.layerGroup([]);
+
   esriGray.addTo(map);
-  L.control.layers({ "Muted gray": esriGray, "Street detail": osmMuted }, null,
-                   { position: "topright", collapsed: true }).addTo(map);
+  L.control.layers(
+    { "Muted gray": esriGray, "Street detail": osmMuted, "No basemap": blank },
+    null,
+    { position: "topright", collapsed: true }
+  ).addTo(map);
 
   // ---- precinct layer --------------------------------------------------
   var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
@@ -203,7 +268,32 @@
   var picked = null;
   var addrMarker = null;
 
-  function popupHtml(p) {
+  var detail = document.getElementById("detail");
+
+  function hideDetail() {
+    detail.hidden = true;
+    document.body.classList.remove("has-detail");
+  }
+
+  function showDetail(p) {
+    document.getElementById("dNum").textContent = p.precinct || "";
+    document.getElementById("dHood").textContent = p.neighborhood || "";
+
+    var stat = document.getElementById("dStat");
+    if (typeof p.active === "number") {
+      stat.className = "d-stat";
+      stat.innerHTML =
+        '<span class="v">' + commas(p.active) + "</span>" +
+        '<span class="k">active voters</span>' +
+        (typeof p.registered === "number"
+          ? '<span class="sub">' + commas(p.registered) + " registered, " +
+            commas(p.inactive || 0) + " inactive</span>"
+          : "");
+    } else {
+      stat.className = "d-stat none";
+      stat.textContent = "Registered voter count not loaded";
+    }
+
     var rows = [
       ["School Board", p.school_board],
       ["City Council", p.council],
@@ -213,31 +303,32 @@
       ["Congress", p.cong]
     ].filter(function (r) { return r[1]; });
 
-    var voters;
-    if (typeof p.active === "number") {
-      voters =
-        '<div class="stat">' +
-          '<div class="row"><span class="v">' + commas(p.active) + "</span>" +
-          '<span class="k">active voters</span></div>' +
-          (typeof p.registered === "number"
-            ? '<div class="sub">' + commas(p.registered) + " registered, " +
-              commas(p.inactive || 0) + " inactive</div>"
-            : "") +
-        "</div>";
-    } else {
-      voters = '<div class="stat none">Registered voter count not loaded</div>';
-    }
+    document.getElementById("dRows").innerHTML = rows.map(function (r) {
+      return '<span class="r"><span>' + r[0] + "</span><b>" + esc(r[1]) + "</b></span>";
+    }).join("");
 
-    return '<div class="pop">' +
-      '<div class="lbl">Precinct</div>' +
-      '<div class="num">' + esc(p.precinct) + "</div>" +
-      (p.neighborhood ? '<div class="hood">' + esc(p.neighborhood) + "</div>" : "") +
-      voters +
-      (rows.length ? "<dl>" + rows.map(function (r) {
-        return "<dt>" + r[0] + "</dt><dd>" + esc(r[1]) + "</dd>";
-      }).join("") + "</dl>" : "") +
-      (p.precinct_code ? '<div class="code">Code ' + esc(p.precinct_code) + "</div>" : "") +
-      "</div>";
+    document.getElementById("dCode").textContent =
+      p.precinct_code ? "Code " + p.precinct_code : "";
+
+    detail.hidden = false;
+    document.body.classList.add("has-detail");
+  }
+
+  document.getElementById("detailClose").addEventListener("click", function () {
+    hideDetail();
+    if (picked) {
+      picked.setStyle(styleFor((picked.feature && picked.feature.properties) || {}));
+      picked = null;
+    }
+  });
+
+  // Leave room at the bottom so the detail bar never sits on top of the shape.
+  function fitPadding() {
+    var extra = detail.hidden ? 0 : detail.offsetHeight + 16;
+    return {
+      paddingTopLeft: [40, 40],
+      paddingBottomRight: [40, 40 + extra]
+    };
   }
 
   function selectLayer(layer) {
@@ -247,9 +338,11 @@
     picked = layer;
     layer.setStyle(PICKED);
     layer.bringToFront();
-    // Zoom so the precinct sits comfortably inside the viewport.
-    map.flyToBounds(layer.getBounds(), { padding: PAD, maxZoom: 16, duration: .6 });
-    map.once("moveend", function () { layer.openPopup(); });
+    showDetail((layer.feature && layer.feature.properties) || {});
+    var opts = fitPadding();
+    opts.maxZoom = 16;
+    opts.duration = .6;
+    map.flyToBounds(layer.getBounds(), opts);
   }
 
   var layers = L.geoJSON(null, {
@@ -258,7 +351,6 @@
       var p = feature.properties || {};
       byNumber[String(p.precinct)] = layer;
       features.push({ props: p, layer: layer, geom: feature.geometry });
-      layer.bindPopup(popupHtml(p), { closeButton: true, autoPanPadding: [30, 30] });
       layer.bindTooltip(String(p.precinct), { sticky: true, direction: "top", opacity: .9 });
       layer.on({
         mouseover: function () { if (layer !== picked) { layer.setStyle(HOVER); layer.bringToFront(); } },
@@ -320,6 +412,7 @@
         say(d.label.replace(/^./, function (c) { return c.toUpperCase(); }) + " " + v +
             ": " + n + " precinct" + (n === 1 ? "" : "s") +
             (active ? ", " + commas(active) + " active voters" : "") + ".");
+        setCollapsed(true);   // get the panel out of the way of the map
       });
     });
   }
@@ -329,7 +422,7 @@
       picked.setStyle(styleFor((picked.feature && picked.feature.properties) || {}));
       picked = null;
     }
-    map.closePopup();
+    hideDetail();
     if (addrMarker) { map.removeLayer(addrMarker); addrMarker = null; }
   }
 
@@ -348,23 +441,35 @@
     clearSelection();
     zoomDenver();
     say("Showing all of Denver County.");
+    setCollapsed(true);
   });
 
   // ---- box zoom --------------------------------------------------------
   var boxBtn = document.getElementById("boxBtn");
   var boxOn = false, boxStart = null, boxRect = null;
 
+  // Everything on the map goes inert while a box is being drawn: no panning,
+  // no wheel or double-click zoom, and no hover, tooltip or click on precincts.
+  var MAP_HANDLERS = ["dragging", "doubleClickZoom", "scrollWheelZoom",
+                      "boxZoom", "keyboard", "touchZoom", "tap"];
+
   function setBoxMode(on) {
     boxOn = on;
     boxBtn.classList.toggle("on", on);
     boxBtn.textContent = on ? "Cancel box" : "Box zoom";
-    var c = map.getContainer();
-    c.classList.toggle("boxzoom-on", on);
+    map.getContainer().classList.toggle("boxzoom-on", on);
+
+    MAP_HANDLERS.forEach(function (h) {
+      if (map[h]) { on ? map[h].disable() : map[h].enable(); }
+    });
+
     if (on) {
-      map.dragging.disable();
+      features.forEach(function (f) {
+        if (f.layer.closeTooltip) f.layer.closeTooltip();
+        if (f.layer !== picked) f.layer.setStyle(styleFor(f.props));
+      });
       say("Drag a box on the map to zoom into it.");
     } else {
-      map.dragging.enable();
       if (boxRect) { map.removeLayer(boxRect); boxRect = null; }
       boxStart = null;
     }
@@ -396,6 +501,7 @@
     if (px < 12) { say("Box was too small. Try dragging a larger area."); return; }
     map.flyToBounds(b, { padding: [10, 10], duration: .6 });
     say("Zoomed to the selected area.");
+    setCollapsed(true);
   });
 
   // ---- point in polygon (for address lookup) ---------------------------
@@ -466,11 +572,7 @@
           return;
         }
         say(r.j.name ? r.j.name : q);
-        picked = hit.layer;
-        hit.layer.setStyle(PICKED);
-        hit.layer.bringToFront();
-        map.flyToBounds(hit.layer.getBounds(), { padding: PAD, maxZoom: 16, duration: .6 });
-        map.once("moveend", function () { hit.layer.openPopup(); });
+        selectLayer(hit.layer);
       })
       .catch(function (err) {
         say("Could not find that address. " + err.message, true);
@@ -487,7 +589,7 @@
   });
 
   // ---- load ------------------------------------------------------------
-  fetch("/data/precincts.geojson", { cache: "force-cache" })
+  fetch("{{ data_url }}")
     .then(function (res) {
       if (!res.ok) throw new Error("HTTP " + res.status + " loading precincts.geojson");
       return res.json();

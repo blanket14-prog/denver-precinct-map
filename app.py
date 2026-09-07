@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import threading
@@ -28,9 +29,39 @@ _geo_cache = {}
 GEO_CACHE_MAX = 500
 
 
+_geojson_ver = {"mtime": None, "tag": "0"}
+
+
+def geojson_version():
+    """Short content hash, so the client URL changes whenever the data does.
+
+    Without this, the long Cache-Control on the GeoJSON means anyone who
+    loaded the map before a data update keeps the stale copy for a day.
+    """
+    path = os.path.join(DATA_DIR, "precincts.geojson")
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        app.logger.error("MISSING DATA FILE when versioning: %s", path)
+        return "0"
+    if _geojson_ver["mtime"] != mtime:
+        digest = hashlib.md5()
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(1 << 20), b""):
+                digest.update(chunk)
+        _geojson_ver["mtime"] = mtime
+        _geojson_ver["tag"] = digest.hexdigest()[:10]
+    return _geojson_ver["tag"]
+
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    resp = app.make_response(
+        render_template("index.html",
+                        data_url="/data/precincts.geojson?v=" + geojson_version())
+    )
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.route("/data/precincts.geojson")

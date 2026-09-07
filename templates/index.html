@@ -625,6 +625,7 @@
     zoomDenver();
     say("");
     setCollapsed(false);
+    forgetView();
   });
 
   // ---- box zoom --------------------------------------------------------
@@ -941,6 +942,38 @@
 
   map.on("zoomend layeradd layerremove", syncLabels);
 
+  // ---- remember where you left off --------------------------------------
+  // Per browser, not per account: localStorage on this origin. A /s/ link
+  // always wins over it, so a link someone sends opens on their view rather
+  // than snapping back to whatever this browser last had.
+  var VIEW_KEY = "denver-precinct-map:lastView";
+  var saveTimer = null;
+
+  function saveView() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(VIEW_KEY, encodeState());
+      } catch (err) {
+        /* private browsing, or storage disabled: not worth bothering about */
+      }
+    }, 400);
+  }
+
+  function readSavedView() {
+    try {
+      return localStorage.getItem(VIEW_KEY);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function forgetView() {
+    try {
+      localStorage.removeItem(VIEW_KEY);
+    } catch (err) {}
+  }
+
   // ---- shareable links --------------------------------------------------
   // State is encoded into the URL path itself rather than stored server-side:
   // Render's free tier has no persistent disk and the service sleeps, so a
@@ -992,20 +1025,15 @@
     }
     var c = map.getCenter();
     out.push("z" + map.getZoom() + "@" + c.lat.toFixed(4) + "," + c.lng.toFixed(4));
-    return out.join(".");
+    return out.join("~");
   }
 
   function applyState(code) {
-    var parts = String(code || "").split(".");
-    // the view segment contains a dot inside the coordinates, so rejoin it
-    var segs = [];
-    parts.forEach(function (part) {
-      if (segs.length && /^\d+$/.test(part) && /@[-\d.,]*$/.test(segs[segs.length - 1])) {
-        segs[segs.length - 1] += "." + part;
-      } else {
-        segs.push(part);
-      }
-    });
+    // Segments are separated by "~". An earlier build used "." which also
+    // appears inside the coordinates, so the view never parsed; links in
+    // that older form are still read for their layers, filter and precinct.
+    code = String(code || "");
+    var segs = code.indexOf("~") >= 0 ? code.split("~") : code.split(".");
 
     var bits = parseInt(segs[0], 36);
     if (!isNaN(bits)) {
@@ -1139,19 +1167,30 @@
       say("Could not load precinct boundaries. " + err.message, true);
     });
 
-  // A /s/<code> URL restores the view once both datasets are in.
+  // A /s/<code> URL restores that view; otherwise pick up where this browser
+  // left off. Either way, start remembering once the map has settled.
   var shared = location.pathname.match(/^\/s\/(.+)$/);
-  if (shared) {
-    Promise.all([precinctsReady, districtsReady])
-      .then(function () {
+  Promise.all([precinctsReady, districtsReady]).then(function () {
+    if (shared) {
+      try {
+        applyState(decodeURIComponent(shared[1]));
+      } catch (err) {
+        console.error("[precinct-map] could not read shared link: " + err.message);
+        say("That shared link could not be read, showing the whole county.", true);
+      }
+    } else {
+      var saved = readSavedView();
+      if (saved) {
         try {
-          applyState(decodeURIComponent(shared[1]));
+          applyState(saved);
         } catch (err) {
-          console.error("[precinct-map] could not read shared link: " + err.message);
-          say("That shared link could not be read, showing the whole county.", true);
+          console.error("[precinct-map] could not read the saved view: " + err.message);
+          forgetView();
         }
-      });
-  }
+      }
+    }
+    map.on("moveend zoomend layeradd layerremove", saveView);
+  });
 })();
 </script>
 </body>

@@ -21,6 +21,7 @@ import os
 import sys
 
 import shapefile
+import shapely
 from pyproj import CRS, Transformer
 from shapely.geometry import shape, mapping
 from shapely.ops import transform as shp_transform
@@ -200,7 +201,8 @@ def load_neighborhoods(maps_dir):
         name = str(rec.get(name_field, "")).strip()
         if not name:
             continue
-        out.append((name, project(shape(sr.shape.__geo_interface__)).buffer(0)))
+        out.append((name, shapely.set_precision(
+            project(shape(sr.shape.__geo_interface__)).buffer(0), 1e-7)))
     print("  neighbourhoods loaded: %d" % len(out))
     return out
 
@@ -216,10 +218,17 @@ def build_districts(feats, out_path, maps_dir=None):
     from shapely.geometry import shape as _shape
     from shapely.ops import unary_union
 
+    # Snap every precinct to a common grid (about 1 cm) before dissolving.
+    # Neighbouring precincts then share bitwise-identical vertices, so the
+    # dissolve is exact and needs no closing buffer. The old positive-then-
+    # negative buffer was what created the pinprick holes and specks in the
+    # first place.
+    GRID = 1e-7
+
     groups = {}
     for f in feats:
         props = f["properties"]
-        geom = _shape(f["geometry"])
+        geom = shapely.set_precision(_shape(f["geometry"]), GRID)
         for layer, key, _label in DISTRICT_LAYERS:
             val = props.get(key)
             if val:
@@ -231,28 +240,31 @@ def build_districts(feats, out_path, maps_dir=None):
     # the boundaries collapses each shared edge to a single line.
     from shapely.geometry import Polygon, MultiPolygon, Point
 
-    def clean(geom):
-        """Drop hole rings and crumbs left by the sliver-closing buffer.
+    # Degenerate rings and specks left by floating-point noise. A tenth of a
+    # square metre: far below any real enclave or island, far above a
+    # rounding artefact.
+    SPECK = 1e-11
 
-        Closing hairline gaps between precincts leaves pinprick holes and
-        detached specks inside a district. Their boundaries were rendering as
-        short line fragments floating in the middle of the district, which
-        look like boundaries but are not. No Denver council, school board or
-        RTD district has a genuine hole, so every interior ring is an
-        artefact and can go.
+    def clean(geom):
+        """Drop only degenerate rings and specks, keeping real holes.
+
+        Denver's council districts 2, 4 and 6, senate 26 and 32, house 1, 3
+        and 9 and RTD A, D and E all have genuine holes or detached parts.
+        An earlier version stripped every interior ring, which deleted the
+        boundary around each enclave from the district that surrounds it
+        while the neighbouring district still traced it, leaving lines on
+        the map that looked orphaned.
         """
         parts = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
         kept = []
         for part in parts:
-            if part.is_empty:
+            if part.is_empty or part.area < SPECK:
                 continue
-            solid = Polygon(part.exterior)          # exterior ring only
-            kept.append(solid)
+            holes = [ring for ring in part.interiors
+                     if Polygon(ring).area >= SPECK]
+            kept.append(Polygon(part.exterior, holes))
         if not kept:
             return geom
-        biggest = max(p.area for p in kept)
-        # anything under a thousandth of the main body is a crumb
-        kept = [p for p in kept if p.area >= biggest / 1000.0]
         return kept[0] if len(kept) == 1 else MultiPolygon(kept)
 
     def label_point(geom, precinct_geoms):
@@ -282,14 +294,7 @@ def build_districts(feats, out_path, maps_dir=None):
 
     by_layer = {}
     for (layer, val), geoms in sorted(groups.items()):
-        merged = unary_union([g.buffer(0) for g in geoms])
-        # Close hairline slivers where neighbouring precincts share an edge but
-        # not identical vertices. Mitred joins with a single quadrant segment
-        # keep the vertex count from exploding on a 300-precinct union.
-        merged = (merged
-                  .buffer(0.0000015, quad_segs=1, join_style=2)
-                  .buffer(-0.0000015, quad_segs=1, join_style=2))
-        merged = clean(merged)
+        merged = clean(unary_union(geoms))
         by_layer.setdefault(layer, []).append((val, merged, geoms))
 
     out = []
@@ -317,18 +322,15 @@ def build_districts(feats, out_path, maps_dir=None):
 
     # A world rectangle with the county punched out of it. Filled on the map,
     # this greys everything outside Denver so the county reads as the subject.
-    county = unary_union([g.buffer(0) for f in feats
-                          for g in [_shape(f["geometry"])]])
-    county = (county.buffer(0.0000015, quad_segs=1, join_style=2)
-                    .buffer(-0.0000015, quad_segs=1, join_style=2))
+    county = clean(unary_union(
+        [shapely.set_precision(_shape(f["geometry"]), GRID) for f in feats]))
     county_parts = (county.geoms if isinstance(county, MultiPolygon)
                     else [county])
 
     # Keep real enclaves as holes in the county so they get greyed with
     # everything else outside Denver. Glendale is entirely surrounded by
-    # Denver but is not part of it. Pinprick rings left by the sliver-closing
-    # buffer are far smaller than any real enclave, so an area floor of
-    # 1e-6 square degrees (roughly a 100 m square) separates the two.
+    # Denver but is not part of it. The floor here is deliberately coarser
+    # than SPECK: a hole worth greying is at least a city block.
     ENCLAVE_MIN = 1e-6
     world = [[-180.0, -85.0], [180.0, -85.0], [180.0, 85.0],
              [-180.0, 85.0], [-180.0, -85.0]]

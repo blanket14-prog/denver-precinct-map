@@ -59,6 +59,11 @@
   .pop .code{margin-top:9px;font-size:11px;color:#98a2ae;font-variant-numeric:tabular-nums}
 
   .leaflet-container{font:inherit}
+  /* OSM tiles desaturated so the precincts stay the loudest thing on screen */
+  .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
+  .leaflet-control-layers{border-radius:8px;border:1px solid var(--line);
+    box-shadow:0 4px 16px rgba(20,30,45,.12)}
+  .leaflet-control-layers-list{font-size:13px;padding:4px 2px}
   .leaflet-control-attribution{font-size:10.5px}
 
   @media (max-width:560px){
@@ -103,17 +108,45 @@
 
   L.control.scale({ imperial: true, metric: false, position: "bottomleft" }).addTo(map);
 
-  L.tileLayer(
-    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+  // Basemaps. Both are key-free: CARTO's Positron now watermarks
+  // "API KEY REQUIRED" over every tile, so it is not used here.
+  var ESRI_ATTR =
+    'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
+    "Precincts: Denver Open Data | Voters: CO Secretary of State";
+
+  var esriGray = L.layerGroup([
+    L.tileLayer(
+      "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
+        "World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      { attribution: ESRI_ATTR, maxNativeZoom: 16, maxZoom: 18 }
+    ),
+    L.tileLayer(
+      "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
+        "World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
+      { maxNativeZoom: 16, maxZoom: 18, pane: "shadowPane" }
+    )
+  ]);
+
+  var osmMuted = L.tileLayer(
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     {
       attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, ' +
-        '&copy; <a href="https://carto.com/attributions">CARTO</a> | Precincts: Denver Open Data',
-      subdomains: "abcd",
-      maxZoom: 20,
-      opacity: 0.85
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+        "contributors | Precincts: Denver Open Data | Voters: CO Secretary of State",
+      maxZoom: 19,
+      className: "muted-tiles"
     }
-  ).addTo(map);
+  );
+
+  esriGray.addTo(map);
+
+  L.control
+    .layers(
+      { "Muted gray": esriGray, "Street detail": osmMuted },
+      null,
+      { position: "topright", collapsed: true }
+    )
+    .addTo(map);
 
   var BASE = { color: "#2f6fa8", weight: 1, opacity: 0.85, fillColor: "#4a90c4", fillOpacity: 0.16 };
   var HOVER = { weight: 2, color: "#1d5687", fillOpacity: 0.30 };

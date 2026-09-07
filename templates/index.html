@@ -333,6 +333,10 @@
   L.control.zoom({ position: "topright", zoomInTitle: "Zoom in", zoomOutTitle: "Zoom out" }).addTo(map);
 
   // ---- precinct layer --------------------------------------------------
+  function swatch(color, label) {
+    return '<span class="swatch" style="background:' + color + '"></span>' + label;
+  }
+
   var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
   var HOVER = { weight: 2, color: "#1d5687", fillOpacity: .30 };
   var PICKED = { weight: 2.5, color: "#b4531f", fillColor: "#e08b3e", fillOpacity: .42 };
@@ -448,6 +452,8 @@
       });
     }
   }).addTo(map);
+
+  layerControl.addOverlay(layers, swatch("#2f6fa8", "Precincts"));
 
   // ---- district zoom ---------------------------------------------------
   var DISTRICTS = [
@@ -708,10 +714,6 @@
       small: true, minLabelZoom: 13 }
   ];
 
-  function swatch(color, label) {
-    return '<span class="swatch" style="background:' + color + '"></span>' + label;
-  }
-
   function districtLabel(text, color, small) {
     return L.divIcon({
       className: "",
@@ -815,7 +817,10 @@
     { bit: 8,  key: "rtd" },
     { bit: 16, key: "senate" },
     { bit: 32, key: "house" },
-    { bit: 64, key: "nbhd" }
+    { bit: 64, key: "nbhd" },
+    // Inverted on purpose: the bit means "precincts hidden", so share links
+    // created before the precincts were toggleable still open with them on.
+    { bit: 128, get: function () { return layers; }, invert: true }
   ];
   // NB: the filter selectors key off the precinct property names
   // (school_board), while the overlay layers key off the layer names
@@ -836,7 +841,9 @@
     var bits = 0;
     LAYER_BITS.forEach(function (b) {
       var lyr = b.get ? b.get() : layerFor(b.key);
-      if (lyr && map.hasLayer(lyr)) bits |= b.bit;
+      if (!lyr) return;
+      var on = map.hasLayer(lyr);
+      if (b.invert ? !on : on) bits |= b.bit;
     });
 
     var out = [bits.toString(36)];
@@ -868,7 +875,8 @@
       LAYER_BITS.forEach(function (b) {
         var lyr = b.get ? b.get() : layerFor(b.key);
         if (!lyr) return;
-        var want = (bits & b.bit) !== 0;
+        var set = (bits & b.bit) !== 0;
+        var want = b.invert ? !set : set;
         if (want && !map.hasLayer(lyr)) map.addLayer(lyr);
         if (!want && map.hasLayer(lyr)) map.removeLayer(lyr);
       });

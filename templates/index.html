@@ -26,14 +26,23 @@
     flex:none;position:relative}
   .panel h1 span#count{display:block;font-size:11.5px;font-weight:450;color:var(--muted);
     margin-top:2px;letter-spacing:.2px}
-  .panel h1 button{position:absolute;top:10px;right:10px;width:26px;height:26px;padding:0;
+  .panel h1 .hactions{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:7px}
+  .panel h1 #toggle{width:26px;height:26px;padding:0;
     display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);
     background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer;line-height:1}
-  .panel h1 button:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .panel h1 #toggle:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .panel h1 .link{padding:0 2px;font:inherit;font-size:12.5px;font-weight:500;
+    color:var(--accent);background:none;border:0;cursor:pointer;text-decoration:underline;
+    text-underline-offset:2px}
+  .panel h1 .link:hover{color:#27608f}
   .panel h1 button #chev{transition:transform .18s ease}
   .panel.collapsed h1 button #chev{transform:rotate(-90deg)}
-  .panel .note{padding:0 15px 12px;border-bottom:1px solid var(--line);flex:none}
+  .panel .note{padding:0 15px 11px;border-bottom:1px solid var(--line);flex:none}
+  .panel .note[hidden]{display:none}
+  .panel.collapsed .note[hidden] + .body{border-top:0}
   .panel.collapsed .note{border-bottom:0;padding-bottom:13px}
+  .panel.collapsed .btnrow.always{padding-bottom:13px}
+  .panel.collapsed .note:not([hidden]) ~ .btnrow.always{padding-bottom:13px}
   .panel .body{padding:12px 15px 14px;overflow-y:auto}
   .panel.collapsed .body{display:none}
 
@@ -57,6 +66,7 @@
   .sec h2{margin:0 0 9px;font-size:10.5px;font-weight:600;letter-spacing:.9px;
     text-transform:uppercase;color:var(--muted)}
   .btnrow{display:flex;gap:7px;margin-bottom:10px}
+  .btnrow.always{margin:0;padding:0 15px 11px;flex:none}
   .btnrow button{
     flex:1;padding:7px 8px;font-size:12.5px;font-family:inherit;font-weight:550;
     color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer;
@@ -121,7 +131,8 @@
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
 
   @media (max-width:700px){
-    .panel{width:auto;left:10px;right:10px;top:10px;max-height:60vh}
+    /* keep clear of Leaflet's layers control in the top-right corner */
+    .panel{width:auto;left:10px;right:64px;top:10px;max-height:60vh}
     .detail{left:10px;right:10px;bottom:10px;gap:10px;padding:11px 40px 11px 13px}
     .d-num{font-size:21px}
     body.has-detail .leaflet-bottom{bottom:150px}
@@ -133,10 +144,17 @@
 
 <div class="panel">
   <h1>
-    <button type="button" id="toggle" aria-expanded="true" aria-controls="panelBody"
-            title="Show or hide the controls"><span id="chev">&#9662;</span></button>
+    <span class="hactions">
+      <button type="button" id="reset" class="link">Reset</button>
+      <button type="button" id="toggle" aria-expanded="true" aria-controls="panelBody"
+              title="Show or hide the controls"><span id="chev">&#9662;</span></button>
+    </span>
     Denver Precincts<span id="count">Loading precincts…</span>
   </h1>
+  <div class="btnrow always">
+    <button type="button" id="zoomDenver">Denver</button>
+    <button type="button" id="boxBtn">Box zoom</button>
+  </div>
   <div class="note" id="note">Click any precinct to zoom in and see its details.</div>
   <div class="body" id="panelBody">
     <form class="search" id="searchForm" autocomplete="off">
@@ -145,11 +163,7 @@
     </form>
 
     <div class="sec first">
-      <h2>Zoom to</h2>
-      <div class="btnrow">
-        <button type="button" id="zoomDenver">Denver</button>
-        <button type="button" id="boxBtn">Box zoom</button>
-      </div>
+      <h2>Zoom to a district</h2>
       <div class="dist">
         <label for="dCouncil">City Council</label><select id="dCouncil"></select>
         <label for="dSchool">School Board</label><select id="dSchool"></select>
@@ -191,8 +205,9 @@
   });
 
   function say(msg, isErr) {
-    note.textContent = msg;
+    note.textContent = msg || "";
     note.className = isErr ? "note err" : "note";
+    note.hidden = !msg;
     if (isErr) console.error("[precinct-map] " + msg);
   }
   function commas(n) {
@@ -440,8 +455,18 @@
     resetDistrictMenus();
     clearSelection();
     zoomDenver();
-    say("Showing all of Denver County.");
+    say("");
     setCollapsed(true);
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    if (boxOn) setBoxMode(false);
+    document.getElementById("q").value = "";
+    resetDistrictMenus();
+    clearSelection();
+    zoomDenver();
+    say("");
+    setCollapsed(false);
   });
 
   // ---- box zoom --------------------------------------------------------
@@ -548,6 +573,7 @@
     clearSelection();
     say("Showing precinct " + num + ".");
     selectLayer(layer);
+    setCollapsed(true);   // clear the panel off the map once we have a result
   }
 
   function findAddress(q) {
@@ -569,10 +595,12 @@
         if (!hit) {
           map.flyTo([lat, lon], 14, { duration: .6 });
           say("Found " + (r.j.name || q) + ", but it is outside Denver County precincts.", true);
+          setCollapsed(true);
           return;
         }
         say(r.j.name ? r.j.name : q);
         selectLayer(hit.layer);
+        setCollapsed(true);
       })
       .catch(function (err) {
         say("Could not find that address. " + err.message, true);

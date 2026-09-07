@@ -24,7 +24,7 @@ import shapefile
 import shapely
 from pyproj import CRS, Transformer
 from shapely.geometry import shape, mapping
-from shapely.ops import transform as shp_transform
+from shapely.ops import linemerge, transform as shp_transform
 
 MAPS = sys.argv[1] if len(sys.argv) > 1 else "../Maps"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "data/precincts.geojson"
@@ -207,7 +207,7 @@ def load_neighborhoods(maps_dir):
     return out
 
 
-def build_districts(feats, out_path, maps_dir=None):
+def build_districts(feats, exact_geoms, out_path, maps_dir=None):
     """Dissolve precincts into district outlines.
 
     Denver publishes shapefiles for council and school board but not for RTD,
@@ -226,9 +226,14 @@ def build_districts(feats, out_path, maps_dir=None):
     GRID = 1e-7
 
     groups = {}
-    for f in feats:
+    for f, exact in zip(feats, exact_geoms):
         props = f["properties"]
-        geom = shapely.set_precision(_shape(f["geometry"]), GRID)
+        # NB: the exact polygon, not f["geometry"]. The stored geometry is
+        # simplified per precinct, and simplifying neighbours independently
+        # pulls their shared edge apart. Dissolving those leaves a sliver
+        # between every pair of precincts, and the slivers render as short
+        # detached dashes all over the interior of a district.
+        geom = shapely.set_precision(exact, GRID)
         for layer, key, _label in DISTRICT_LAYERS:
             val = props.get(key)
             if val:
@@ -299,8 +304,12 @@ def build_districts(feats, out_path, maps_dir=None):
 
     out = []
     for layer, entries in sorted(by_layer.items()):
-        lines = unary_union([e[1].boundary for e in entries])
-        lines = lines.simplify(0.00001, preserve_topology=True)
+        # The union nodes the boundaries at every precinct corner, leaving
+        # thousands of two-point stubs that simplify cannot touch because it
+        # preserves each part's endpoints. linemerge stitches them back into
+        # continuous runs between real junctions first.
+        lines = linemerge(unary_union([e[1].boundary for e in entries]))
+        lines = lines.simplify(0.00002, preserve_topology=True)   # ~2 m
         out.append({
             "type": "Feature",
             "properties": {
@@ -323,7 +332,7 @@ def build_districts(feats, out_path, maps_dir=None):
     # A world rectangle with the county punched out of it. Filled on the map,
     # this greys everything outside Denver so the county reads as the subject.
     county = clean(unary_union(
-        [shapely.set_precision(_shape(f["geometry"]), GRID) for f in feats]))
+        [shapely.set_precision(g, GRID) for g in exact_geoms]))
     county_parts = (county.geoms if isinstance(county, MultiPolygon)
                     else [county])
 
@@ -359,7 +368,7 @@ def build_districts(feats, out_path, maps_dir=None):
         hoods = load_neighborhoods(maps_dir)
         if hoods:
             polys = [clean(g) for _n, g in hoods]
-            lines = unary_union([g.boundary for g in polys])
+            lines = linemerge(unary_union([g.boundary for g in polys]))
             # 78 outlines is a lot of linework for a contextual layer, so
             # simplify these harder than the district boundaries (~3 m).
             lines = lines.simplify(0.00003, preserve_topology=True)
@@ -411,7 +420,7 @@ def main():
     fields = [f[0] for f in r.fields[1:]]
     project = to_wgs84(r, src)
 
-    feats, no_board, no_voters = [], [], 0
+    feats, exact_geoms, no_board, no_voters = [], [], [], 0
     for sr in r.shapeRecords():
         rec = dict(zip(fields, list(sr.record)))
         geom = project(shape(sr.shape.__geo_interface__)).buffer(0)
@@ -465,9 +474,13 @@ def main():
         feats.append({"type": "Feature", "properties": props,
                       "geometry": mapping(geom.simplify(SIMPLIFY_DEG,
                                                         preserve_topology=True))})
+        exact_geoms.append(geom)
 
-    feats.sort(key=lambda f: (len(f["properties"]["precinct"]),
-                              f["properties"]["precinct"]))
+    order = sorted(range(len(feats)),
+                   key=lambda i: (len(feats[i]["properties"]["precinct"]),
+                                  feats[i]["properties"]["precinct"]))
+    feats = [feats[i] for i in order]
+    exact_geoms = [exact_geoms[i] for i in order]
 
     def rnd(o):
         if isinstance(o, float):
@@ -485,8 +498,9 @@ def main():
     with open(OUT, "w") as fh:
         json.dump(rnd(fc), fh, separators=(",", ":"))
 
-    build_districts(feats, os.path.join(os.path.dirname(OUT) or ".",
-                                        "districts.geojson"), MAPS)
+    build_districts(feats, exact_geoms,
+                    os.path.join(os.path.dirname(OUT) or ".",
+                                 "districts.geojson"), MAPS)
 
     print("\nwrote %s  (%d features, %d KB)"
           % (OUT, len(feats), os.path.getsize(OUT) // 1024))

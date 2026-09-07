@@ -20,7 +20,9 @@
     position:absolute;top:14px;left:14px;z-index:1000;width:286px;
     background:var(--panel);border:1px solid var(--line);border-radius:10px;
     box-shadow:0 6px 24px rgba(20,30,45,.12);display:flex;flex-direction:column;
-    max-height:calc(100vh - 28px);
+    /* Everything lives in this one panel now, so cap it well short of the
+       viewport and let the body scroll. Otherwise it swallows the map. */
+    max-height:min(calc(100vh - 28px), 74vh);
   }
   .panel h1{margin:0;padding:13px 15px 11px 15px;font-size:15px;font-weight:650;letter-spacing:.1px;
     flex:none;position:relative}
@@ -74,10 +76,10 @@
   .btnrow button:hover{border-color:var(--accent-soft);background:var(--wash)}
   .btnrow button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 
-  .dist{display:grid;grid-template-columns:88px 1fr;gap:6px 8px;align-items:center}
+  .dist{display:grid;grid-template-columns:88px 1fr;gap:5px 8px;align-items:center}
   .dist label{font-size:12px;color:#48525f}
   .dist select{
-    width:100%;padding:5px 6px;font-size:12.5px;font-family:inherit;color:var(--ink);
+    width:100%;padding:4px 6px;font-size:12.5px;font-family:inherit;color:var(--ink);
     border:1px solid var(--line);border-radius:5px;background:#fbfcfd;outline:none;cursor:pointer;
   }
   .dist select:focus{border-color:var(--accent-soft);background:#fff}
@@ -141,7 +143,7 @@
 
   .leaflet-container{font:inherit}
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
-  body.has-detail .panel{max-height:calc(100vh - 42px - var(--detail-h, 72px))}
+  body.has-detail .panel{max-height:min(calc(100vh - 42px - var(--detail-h, 72px)), 66vh)}
   .rows{display:flex;flex-direction:column;gap:1px}
   .rows label{display:flex;align-items:center;gap:8px;padding:3.5px 6px;
     font-size:13px;border-radius:5px;cursor:pointer;user-select:none}

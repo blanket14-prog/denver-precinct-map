@@ -29,49 +29,56 @@ _geo_cache = {}
 GEO_CACHE_MAX = 500
 
 
-_geojson_ver = {"mtime": None, "tag": "0"}
+DATA_FILES = ("precincts.geojson", "districts.geojson")
+_geojson_ver = {}
 
 
-def geojson_version():
+def geojson_version(name):
     """Short content hash, so the client URL changes whenever the data does.
 
     Without this, the long Cache-Control on the GeoJSON means anyone who
     loaded the map before a data update keeps the stale copy for a day.
     """
-    path = os.path.join(DATA_DIR, "precincts.geojson")
+    path = os.path.join(DATA_DIR, name)
     try:
         mtime = os.path.getmtime(path)
     except OSError:
         app.logger.error("MISSING DATA FILE when versioning: %s", path)
         return "0"
-    if _geojson_ver["mtime"] != mtime:
+    cached = _geojson_ver.get(name)
+    if not cached or cached[0] != mtime:
         digest = hashlib.md5()
         with open(path, "rb") as fh:
             for chunk in iter(lambda: fh.read(1 << 20), b""):
                 digest.update(chunk)
-        _geojson_ver["mtime"] = mtime
-        _geojson_ver["tag"] = digest.hexdigest()[:10]
-    return _geojson_ver["tag"]
+        cached = (mtime, digest.hexdigest()[:10])
+        _geojson_ver[name] = cached
+    return cached[1]
 
 
 @app.route("/")
 def index():
     resp = app.make_response(
-        render_template("index.html",
-                        data_url="/data/precincts.geojson?v=" + geojson_version())
+        render_template(
+            "index.html",
+            data_url="/data/precincts.geojson?v=" + geojson_version("precincts.geojson"),
+            districts_url="/data/districts.geojson?v=" + geojson_version("districts.geojson"),
+        )
     )
     resp.headers["Cache-Control"] = "no-cache"
     return resp
 
 
-@app.route("/data/precincts.geojson")
-def precincts():
-    path = os.path.join(DATA_DIR, "precincts.geojson")
+@app.route("/data/<name>.geojson")
+def geojson(name):
+    fname = name + ".geojson"
+    if fname not in DATA_FILES:
+        return jsonify({"error": "unknown data file"}), 404
+    path = os.path.join(DATA_DIR, fname)
     if not os.path.exists(path):
         app.logger.error("MISSING DATA FILE: %s", path)
-        return jsonify({"error": "precincts.geojson not found on server"}), 500
-    resp = send_from_directory(DATA_DIR, "precincts.geojson",
-                               mimetype="application/geo+json")
+        return jsonify({"error": fname + " not found on server"}), 500
+    resp = send_from_directory(DATA_DIR, fname, mimetype="application/geo+json")
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
 
@@ -147,8 +154,11 @@ def geocode():
 
 @app.route("/healthz")
 def healthz():
-    ok = os.path.exists(os.path.join(DATA_DIR, "precincts.geojson"))
-    return jsonify({"ok": ok}), (200 if ok else 500)
+    missing = [f for f in DATA_FILES
+               if not os.path.exists(os.path.join(DATA_DIR, f))]
+    if missing:
+        app.logger.error("HEALTHCHECK missing data files: %s", missing)
+    return jsonify({"ok": not missing, "missing": missing}), (200 if not missing else 500)
 
 
 if __name__ == "__main__":

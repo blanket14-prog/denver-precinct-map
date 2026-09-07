@@ -125,6 +125,9 @@
   .leaflet-control-zoom a:hover{background:var(--wash);color:var(--accent)}
   .leaflet-touch .leaflet-control-zoom{border:1px solid var(--line)}
   .leaflet-control-layers-list{font-size:13px;padding:4px 2px}
+  .leaflet-control-layers .swatch{display:inline-block;width:14px;height:3px;
+    border-radius:2px;margin:0 6px 0 2px;vertical-align:middle}
+  .leaflet-control-layers-separator{margin:6px 0;border-top:1px solid var(--line)}
   .leaflet-control-attribution{font-size:10.5px}
   /* While drawing a box, the precinct layer must not hit-test at all, or every
      pass of the cursor lights up a precinct and pops its number tooltip. */
@@ -230,6 +233,13 @@
   });
   L.control.scale({ imperial: true, metric: false, position: "bottomleft" }).addTo(map);
 
+  // District outlines live in their own pane above the precinct canvas, so a
+  // selected precinct brought to the front can never cover them, and so they
+  // never intercept a click meant for the precinct underneath.
+  map.createPane("districts");
+  map.getPane("districts").style.zIndex = 450;
+  map.getPane("districts").style.pointerEvents = "none";
+
   // ---- basemaps (both key-free) ---------------------------------------
   var ESRI_ATTR =
     'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
@@ -256,7 +266,7 @@
   var blank = L.layerGroup([]);
 
   esriGray.addTo(map);
-  L.control.layers(
+  var layerControl = L.control.layers(
     { "Muted gray": esriGray, "Street detail": osmMuted, "No basemap": blank },
     null,
     { position: "topright", collapsed: true }
@@ -622,6 +632,52 @@
     if (/^\d{1,4}$/.test(q)) findPrecinct(q);
     else findAddress(q);
   });
+
+  // ---- district overlays -----------------------------------------------
+  // Drawn at twice the precinct line weight so they read over the precinct
+  // grid. Boundaries are dissolved from the precincts themselves, so every
+  // district edge follows precinct edges exactly.
+  var DISTRICT_LAYERS = [
+    { key: "council", label: "City Council", color: "#0f766e" },
+    { key: "school",  label: "School Board", color: "#7c3aed" },
+    { key: "rtd",     label: "RTD",          color: "#a16207" }
+  ];
+
+  function swatch(color, label) {
+    return '<span class="swatch" style="background:' + color + '"></span>' + label;
+  }
+
+  fetch("{{ districts_url }}")
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status + " loading districts.geojson");
+      return res.json();
+    })
+    .then(function (geo) {
+      DISTRICT_LAYERS.forEach(function (d) {
+        var feats = (geo.features || []).filter(function (f) {
+          return f.properties && f.properties.layer === d.key;
+        });
+        if (!feats.length) return;
+        d.layer = L.geoJSON(
+          { type: "FeatureCollection", features: feats },
+          {
+            pane: "districts",
+            interactive: false,
+            style: {
+              color: d.color,
+              weight: 2,          // twice the precinct weight of 1
+              opacity: .95,
+              fill: false,
+              lineJoin: "round"
+            }
+          }
+        );
+        layerControl.addOverlay(d.layer, swatch(d.color, d.label));
+      });
+    })
+    .catch(function (err) {
+      console.error("[precinct-map] district outlines unavailable: " + err.message);
+    });
 
   // ---- load ------------------------------------------------------------
   fetch("{{ data_url }}")

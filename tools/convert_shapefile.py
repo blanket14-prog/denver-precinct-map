@@ -164,6 +164,72 @@ def _from_csv(path):
     return out
 
 
+
+DISTRICT_LAYERS = [
+    ("council", "council", "City Council"),
+    ("school",  "school_board", "School Board"),
+    ("rtd",     "rtd", "RTD"),
+]
+
+
+def build_districts(feats, out_path):
+    """Dissolve precincts into district outlines.
+
+    Denver publishes shapefiles for council and school board but not for RTD,
+    and dissolving the precinct layer gives all three from one source. It also
+    guarantees each district outline traces precinct lines exactly, so the
+    overlays never sit a few metres off the precincts underneath them.
+    """
+    from shapely.geometry import shape as _shape
+    from shapely.ops import unary_union
+
+    groups = {}
+    for f in feats:
+        props = f["properties"]
+        for layer, key, _label in DISTRICT_LAYERS:
+            val = props.get(key)
+            if val:
+                groups.setdefault((layer, val), []).append(_shape(f["geometry"]))
+
+    out = []
+    for (layer, val), geoms in sorted(groups.items()):
+        merged = unary_union([g.buffer(0) for g in geoms])
+        # Close hairline slivers where neighbouring precincts share an edge but
+        # not identical vertices. Mitred joins with a single quadrant segment
+        # keep the vertex count from exploding on a 300-precinct union.
+        merged = (merged
+                  .buffer(0.0000015, quad_segs=1, join_style=2)
+                  .buffer(-0.0000015, quad_segs=1, join_style=2))
+        merged = merged.simplify(0.00001, preserve_topology=True)
+        out.append({
+            "type": "Feature",
+            "properties": {"layer": layer, "district": val,
+                           "precincts": len(geoms)},
+            "geometry": mapping(merged),
+        })
+
+    def rnd(o):
+        if isinstance(o, float):
+            return round(o, 6)
+        if isinstance(o, (list, tuple)):
+            return [rnd(x) for x in o]
+        if isinstance(o, dict):
+            return {k: rnd(v) for k, v in o.items()}
+        return o
+
+    with open(out_path, "w") as fh:
+        json.dump(rnd({"type": "FeatureCollection", "features": out}), fh,
+                  separators=(",", ":"))
+
+    counts = {}
+    for f in out:
+        counts[f["properties"]["layer"]] = counts.get(f["properties"]["layer"], 0) + 1
+    print("wrote %s  (%s, %d KB)"
+          % (out_path,
+             ", ".join("%s: %d" % (k, v) for k, v in sorted(counts.items())),
+             os.path.getsize(out_path) // 1024))
+
+
 def main():
     src = os.path.join(MAPS, "Precincts", "ELEC_ELECTIONPRECINCTS_A")
     if not os.path.exists(src + ".shp"):
@@ -238,6 +304,9 @@ def main():
         fc["voter_source"] = voter_source
     with open(OUT, "w") as fh:
         json.dump(rnd(fc), fh, separators=(",", ":"))
+
+    build_districts(feats, os.path.join(os.path.dirname(OUT) or ".",
+                                        "districts.geojson"))
 
     print("\nwrote %s  (%d features, %d KB)"
           % (OUT, len(feats), os.path.getsize(OUT) // 1024))

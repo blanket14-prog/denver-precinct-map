@@ -174,7 +174,38 @@ DISTRICT_LAYERS = [
 ]
 
 
-def build_districts(feats, out_path):
+
+def load_neighborhoods(maps_dir):
+    """Denver's 78 statistical neighborhoods, straight from their shapefile.
+
+    Unlike council, school board, RTD, senate and house, neighbourhoods are
+    NOT built out of whole precincts: a precinct can straddle a neighbourhood
+    line. The precinct shapefile's STAT_NBHD field records only the dominant
+    neighbourhood per precinct, so dissolving precincts by it would draw
+    boundaries that are visibly wrong. Read the real polygons instead.
+    """
+    hits = sorted(glob.glob(os.path.join(maps_dir, "Neighborhoods", "*.shp")))
+    if not hits:
+        print("  ! no Neighborhoods shapefile found; skipping that layer")
+        return []
+    path = hits[0][:-4]
+    r = shapefile.Reader(path)
+    fields = [f[0] for f in r.fields[1:]]
+    project = to_wgs84(r, path)
+
+    name_field = next((f for f in fields if "NAME" in f.upper()), fields[0])
+    out = []
+    for sr in r.shapeRecords():
+        rec = dict(zip(fields, list(sr.record)))
+        name = str(rec.get(name_field, "")).strip()
+        if not name:
+            continue
+        out.append((name, project(shape(sr.shape.__geo_interface__)).buffer(0)))
+    print("  neighbourhoods loaded: %d" % len(out))
+    return out
+
+
+def build_districts(feats, out_path, maps_dir=None):
     """Dissolve precincts into district outlines.
 
     Denver publishes shapefiles for council and school board but not for RTD,
@@ -284,6 +315,67 @@ def build_districts(feats, out_path):
                 "geometry": mapping(Point(pt.x, pt.y)),
             })
 
+    # A world rectangle with the county punched out of it. Filled on the map,
+    # this greys everything outside Denver so the county reads as the subject.
+    county = unary_union([g.buffer(0) for f in feats
+                          for g in [_shape(f["geometry"])]])
+    county = (county.buffer(0.0000015, quad_segs=1, join_style=2)
+                    .buffer(-0.0000015, quad_segs=1, join_style=2))
+    county_parts = (county.geoms if isinstance(county, MultiPolygon)
+                    else [county])
+
+    # Keep real enclaves as holes in the county so they get greyed with
+    # everything else outside Denver. Glendale is entirely surrounded by
+    # Denver but is not part of it. Pinprick rings left by the sliver-closing
+    # buffer are far smaller than any real enclave, so an area floor of
+    # 1e-6 square degrees (roughly a 100 m square) separates the two.
+    ENCLAVE_MIN = 1e-6
+    world = [[-180.0, -85.0], [180.0, -85.0], [180.0, 85.0],
+             [-180.0, 85.0], [-180.0, -85.0]]
+    holes = []
+    enclaves = 0
+    for part in county_parts:
+        if part.area < ENCLAVE_MIN:
+            continue                      # detached speck, not real land
+        holes.append(list(part.exterior.coords))
+        for ring in part.interiors:
+            if Polygon(ring).area >= ENCLAVE_MIN:
+                holes.append(list(ring.coords))
+                enclaves += 1
+    print("  county mask: %d outer ring(s), %d enclave(s) greyed"
+          % (len(holes) - enclaves, enclaves))
+    out.append({
+        "type": "Feature",
+        "properties": {"kind": "mask", "layer": "mask"},
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [world] + [[list(c) for c in h] for h in holes],
+        },
+    })
+
+    if maps_dir:
+        hoods = load_neighborhoods(maps_dir)
+        if hoods:
+            polys = [clean(g) for _n, g in hoods]
+            lines = unary_union([g.boundary for g in polys])
+            # 78 outlines is a lot of linework for a contextual layer, so
+            # simplify these harder than the district boundaries (~3 m).
+            lines = lines.simplify(0.00003, preserve_topology=True)
+            out.append({
+                "type": "Feature",
+                "properties": {"kind": "outline", "layer": "nbhd",
+                               "districts": [n for n, _g in hoods]},
+                "geometry": mapping(lines),
+            })
+            for (name, _orig), poly in zip(hoods, polys):
+                pt = label_point(poly, [])
+                out.append({
+                    "type": "Feature",
+                    "properties": {"kind": "label", "layer": "nbhd",
+                                   "district": name},
+                    "geometry": mapping(Point(pt.x, pt.y)),
+                })
+
     def rnd(o):
         if isinstance(o, float):
             return round(o, 6)
@@ -381,7 +473,7 @@ def main():
         json.dump(rnd(fc), fh, separators=(",", ":"))
 
     build_districts(feats, os.path.join(os.path.dirname(OUT) or ".",
-                                        "districts.geojson"))
+                                        "districts.geojson"), MAPS)
 
     print("\nwrote %s  (%d features, %d KB)"
           % (OUT, len(feats), os.path.getsize(OUT) // 1024))

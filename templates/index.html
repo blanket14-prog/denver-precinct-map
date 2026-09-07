@@ -135,7 +135,12 @@
     -webkit-text-stroke:5px rgba(255,255,255,.92);paint-order:stroke fill;
     text-shadow:0 1px 2px rgba(255,255,255,.9);
   }
-  @media (max-width:700px){ .dlabel{font-size:24px;-webkit-text-stroke-width:4px} }
+  .dlabel.small{font-size:13px;font-weight:700;letter-spacing:0;
+    -webkit-text-stroke-width:3.5px}
+  @media (max-width:700px){
+    .dlabel{font-size:24px;-webkit-text-stroke-width:4px}
+    .dlabel.small{font-size:12px;-webkit-text-stroke-width:3px}
+  }
   .leaflet-control-layers-separator{margin:6px 0;border-top:1px solid var(--line)}
   .leaflet-control-attribution{font-size:10.5px}
   /* While drawing a box, the precinct layer must not hit-test at all, or every
@@ -245,6 +250,9 @@
   // District outlines live in their own pane above the precinct canvas, so a
   // selected precinct brought to the front can never cover them, and so they
   // never intercept a click meant for the precinct underneath.
+  map.createPane("mask");
+  map.getPane("mask").style.zIndex = 350;
+  map.getPane("mask").style.pointerEvents = "none";
   map.createPane("districts");
   map.getPane("districts").style.zIndex = 450;
   map.getPane("districts").style.pointerEvents = "none";
@@ -656,17 +664,20 @@
     { key: "school",  label: "School Board", color: "#7c3aed" },
     { key: "rtd",     label: "RTD",          color: "#a16207" },
     { key: "senate",  label: "State Senate", color: "#be123c" },
-    { key: "house",   label: "State House",  color: "#0f172a" }
+    { key: "house",   label: "State House",  color: "#0f172a" },
+    { key: "nbhd",    label: "Neighborhoods", color: "#a21caf",
+      weight: 2, small: true, minLabelZoom: 13 }
   ];
 
   function swatch(color, label) {
     return '<span class="swatch" style="background:' + color + '"></span>' + label;
   }
 
-  function districtLabel(text, color) {
+  function districtLabel(text, color, small) {
     return L.divIcon({
       className: "",
-      html: '<span class="dlabel" style="color:' + color + '">' + esc(text) + "</span>",
+      html: '<span class="dlabel' + (small ? " small" : "") +
+            '" style="color:' + color + '">' + esc(text) + "</span>",
       iconSize: null
     });
   }
@@ -678,6 +689,21 @@
     })
     .then(function (geo) {
       var feats = geo.features || [];
+
+      // Everything outside the county greyed down, so Denver reads as the
+      // subject rather than one shape among many.
+      var maskFeat = feats.filter(function (f) {
+        return f.properties && f.properties.kind === "mask";
+      });
+      if (maskFeat.length) {
+        var mask = L.geoJSON({ type: "FeatureCollection", features: maskFeat }, {
+          pane: "mask",
+          interactive: false,
+          style: { stroke: false, fillColor: "#334155", fillOpacity: .38 }
+        }).addTo(map);
+        layerControl.addOverlay(mask, "Dim outside Denver");
+      }
+
       DISTRICT_LAYERS.forEach(function (d) {
         var outline = feats.filter(function (f) {
           return f.properties && f.properties.kind === "outline" &&
@@ -691,7 +717,9 @@
             interactive: false,
             style: {
               color: d.color,
-              weight: 4,          // 4x the precinct weight of 1
+              // 4x the precinct weight of 1. Neighbourhoods are a contextual
+              // layer with 78 outlines, so they run lighter.
+              weight: d.weight || 4,
               opacity: 1,
               fill: false,
               lineJoin: "round",
@@ -705,7 +733,7 @@
           if (p.kind !== "label" || p.layer !== d.key) return;
           var c = f.geometry.coordinates;
           parts.push(L.marker([c[1], c[0]], {
-            icon: districtLabel(p.district, d.color),
+            icon: districtLabel(p.district, d.color, d.small),
             pane: "districtLabels",
             interactive: false,
             keyboard: false
@@ -715,6 +743,22 @@
         d.layer = L.layerGroup(parts);
         layerControl.addOverlay(d.layer, swatch(d.color, d.label));
       });
+
+      // 78 neighbourhood names at county zoom is unreadable mush, so the
+      // labels only appear once you are zoomed in far enough to place them.
+      function syncLabelZoom() {
+        DISTRICT_LAYERS.forEach(function (d) {
+          if (!d.minLabelZoom || !d.layer) return;
+          var show = map.getZoom() >= d.minLabelZoom;
+          d.layer.eachLayer(function (l) {
+            if (l.getElement && l.getElement()) {
+              l.getElement().style.display = show ? "" : "none";
+            }
+          });
+        });
+      }
+      map.on("zoomend layeradd", syncLabelZoom);
+      syncLabelZoom();
     })
     .catch(function (err) {
       console.error("[precinct-map] district outlines unavailable: " + err.message);

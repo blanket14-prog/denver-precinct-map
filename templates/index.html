@@ -9,7 +9,7 @@
 <style>
   :root{
     --ink:#1c2430; --muted:#6b7684; --line:#dde3ea; --panel:#ffffff;
-    --accent:#2f6fa8; --accent-soft:#4a90c4;
+    --accent:#2f6fa8; --accent-soft:#4a90c4; --wash:#f2f6fa;
   }
   *{box-sizing:border-box}
   html,body{height:100%;margin:0}
@@ -17,14 +17,16 @@
   #map{position:absolute;inset:0;background:#eef1f4}
 
   .panel{
-    position:absolute;top:14px;left:14px;z-index:1000;width:268px;
+    position:absolute;top:14px;left:14px;z-index:1000;width:286px;
     background:var(--panel);border:1px solid var(--line);border-radius:10px;
-    box-shadow:0 6px 24px rgba(20,30,45,.12);overflow:hidden;
+    box-shadow:0 6px 24px rgba(20,30,45,.12);display:flex;flex-direction:column;
+    max-height:calc(100vh - 28px);
   }
   .panel h1{margin:0;padding:13px 15px 11px;font-size:15px;font-weight:650;letter-spacing:.1px;
-    border-bottom:1px solid var(--line)}
+    border-bottom:1px solid var(--line);flex:none}
   .panel h1 span{display:block;font-size:11.5px;font-weight:450;color:var(--muted);margin-top:2px;letter-spacing:.2px}
-  .panel .body{padding:12px 15px 14px}
+  .panel .body{padding:12px 15px 14px;overflow-y:auto}
+
   .search{display:flex;gap:7px}
   .search input{
     flex:1;min-width:0;padding:8px 10px;font-size:14px;font-family:inherit;color:var(--ink);
@@ -33,11 +35,31 @@
   .search input:focus{border-color:var(--accent-soft);background:#fff;box-shadow:0 0 0 3px rgba(74,144,196,.15)}
   .search button{
     padding:8px 12px;font-size:13px;font-family:inherit;font-weight:550;color:#fff;
-    background:var(--accent);border:0;border-radius:6px;cursor:pointer;
+    background:var(--accent);border:0;border-radius:6px;cursor:pointer;white-space:nowrap;
   }
   .search button:hover{background:#27608f}
+  .search button:disabled{background:#9db6cb;cursor:default}
   .note{margin-top:9px;font-size:12px;color:var(--muted);min-height:16px}
   .note.err{color:#b03a3a}
+
+  .sec{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .sec h2{margin:0 0 9px;font-size:10.5px;font-weight:600;letter-spacing:.9px;
+    text-transform:uppercase;color:var(--muted)}
+  .btnrow{display:flex;gap:7px;margin-bottom:10px}
+  .btnrow button{
+    flex:1;padding:7px 8px;font-size:12.5px;font-family:inherit;font-weight:550;
+    color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer;
+  }
+  .btnrow button:hover{border-color:var(--accent-soft);background:var(--wash)}
+  .btnrow button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  .dist{display:grid;grid-template-columns:88px 1fr;gap:6px 8px;align-items:center}
+  .dist label{font-size:12px;color:#48525f}
+  .dist select{
+    width:100%;padding:5px 6px;font-size:12.5px;font-family:inherit;color:var(--ink);
+    border:1px solid var(--line);border-radius:5px;background:#fbfcfd;outline:none;cursor:pointer;
+  }
+  .dist select:focus{border-color:var(--accent-soft);background:#fff}
 
   .leaflet-popup-content-wrapper{border-radius:9px;box-shadow:0 8px 28px rgba(20,30,45,.18)}
   .leaflet-popup-content{margin:0;width:auto!important}
@@ -45,13 +67,12 @@
   .pop .num{font-size:27px;font-weight:680;letter-spacing:-.5px;line-height:1.05}
   .pop .lbl{font-size:10.5px;font-weight:600;letter-spacing:.9px;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
   .pop .hood{margin-top:3px;font-size:13px;color:#48525f}
-  .pop .stat{margin:11px 0 0;padding:8px 10px;background:#f2f6fa;border-radius:6px}
+  .pop .stat{margin:11px 0 0;padding:8px 10px;background:var(--wash);border-radius:6px}
   .pop .stat .row{display:flex;align-items:baseline;gap:7px}
   .pop .stat .v{font-size:17px;font-weight:660;font-variant-numeric:tabular-nums;color:#23557f}
   .pop .stat .k{font-size:11.5px;color:var(--muted)}
   .pop .stat .sub{margin-top:2px;font-size:11px;color:#8b95a2;font-variant-numeric:tabular-nums}
   .pop .stat.none{font-size:11.5px;color:#98a2ae;background:#f6f7f9}
-  .pop .dir{margin-top:9px;font-size:12px;color:#48525f}
   .pop dl{display:grid;grid-template-columns:auto auto;gap:4px 14px;margin:11px 0 0;
     padding-top:10px;border-top:1px solid var(--line);font-size:12.5px}
   .pop dt{color:var(--muted)}
@@ -59,15 +80,17 @@
   .pop .code{margin-top:9px;font-size:11px;color:#98a2ae;font-variant-numeric:tabular-nums}
 
   .leaflet-container{font:inherit}
-  /* OSM tiles desaturated so the precincts stay the loudest thing on screen */
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
   .leaflet-control-layers{border-radius:8px;border:1px solid var(--line);
     box-shadow:0 4px 16px rgba(20,30,45,.12)}
   .leaflet-control-layers-list{font-size:13px;padding:4px 2px}
   .leaflet-control-attribution{font-size:10.5px}
+  .boxzoom-on{cursor:crosshair!important}
+  .boxzoom-on .leaflet-interactive{cursor:crosshair!important}
+  .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
 
   @media (max-width:560px){
-    .panel{width:auto;left:10px;right:10px;top:10px}
+    .panel{width:auto;left:10px;right:10px;top:10px;max-height:calc(100vh - 20px)}
   }
 </style>
 </head>
@@ -78,10 +101,25 @@
   <h1>Denver Precincts<span id="count">Loading precincts…</span></h1>
   <div class="body">
     <form class="search" id="searchForm" autocomplete="off">
-      <input id="q" type="text" inputmode="numeric" placeholder="Precinct number, e.g. 214" aria-label="Precinct number">
-      <button type="submit">Find</button>
+      <input id="q" type="text" placeholder="Address or precinct number" aria-label="Address or precinct number">
+      <button type="submit" id="findBtn">Find</button>
     </form>
-    <div class="note" id="note">Click any precinct to see its number.</div>
+    <div class="note" id="note">Click any precinct to zoom in and see its details.</div>
+
+    <div class="sec">
+      <h2>Zoom to</h2>
+      <div class="btnrow">
+        <button type="button" id="zoomDenver">Denver</button>
+        <button type="button" id="boxBtn">Box zoom</button>
+      </div>
+      <div class="dist">
+        <label for="dCouncil">City Council</label><select id="dCouncil"></select>
+        <label for="dSchool">School Board</label><select id="dSchool"></select>
+        <label for="dRtd">RTD</label><select id="dRtd"></select>
+        <label for="dSenate">State Senate</label><select id="dSenate"></select>
+        <label for="dHouse">State House</label><select id="dHouse"></select>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -90,30 +128,34 @@
 (function () {
   "use strict";
 
+  var PAD = [70, 70];          // padding when fitting a single precinct
   var note = document.getElementById("note");
+
   function say(msg, isErr) {
     note.textContent = msg;
     note.className = isErr ? "note err" : "note";
     if (isErr) console.error("[precinct-map] " + msg);
   }
+  function commas(n) {
+    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
 
   var map = L.map("map", {
-    center: [39.7325, -104.9540],
-    zoom: 11,
-    minZoom: 9,
-    maxZoom: 18,
-    zoomControl: true,
-    preferCanvas: true
+    center: [39.7325, -104.954],
+    zoom: 11, minZoom: 9, maxZoom: 18,
+    zoomControl: true, preferCanvas: true
   });
-
   L.control.scale({ imperial: true, metric: false, position: "bottomleft" }).addTo(map);
 
-  // Basemaps. Both are key-free: CARTO's Positron now watermarks
-  // "API KEY REQUIRED" over every tile, so it is not used here.
+  // ---- basemaps (both key-free) ---------------------------------------
   var ESRI_ATTR =
     'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
     "Precincts: Denver Open Data | Voters: CO Secretary of State";
-
   var esriGray = L.layerGroup([
     L.tileLayer(
       "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
@@ -126,49 +168,46 @@
       { maxNativeZoom: 16, maxZoom: 18, pane: "shadowPane" }
     )
   ]);
-
-  var osmMuted = L.tileLayer(
-    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-    {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
-        "contributors | Precincts: Denver Open Data | Voters: CO Secretary of State",
-      maxZoom: 19,
-      className: "muted-tiles"
-    }
-  );
-
+  var osmMuted = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> ' +
+      "contributors | Precincts: Denver Open Data | Voters: CO Secretary of State",
+    maxZoom: 19, className: "muted-tiles"
+  });
   esriGray.addTo(map);
+  L.control.layers({ "Muted gray": esriGray, "Street detail": osmMuted }, null,
+                   { position: "topright", collapsed: true }).addTo(map);
 
-  L.control
-    .layers(
-      { "Muted gray": esriGray, "Street detail": osmMuted },
-      null,
-      { position: "topright", collapsed: true }
-    )
-    .addTo(map);
+  // ---- precinct layer --------------------------------------------------
+  var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
+  var HOVER = { weight: 2, color: "#1d5687", fillOpacity: .30 };
+  var PICKED = { weight: 2.5, color: "#b4531f", fillColor: "#e08b3e", fillOpacity: .42 };
+  var IN_DIST = { color: "#22557f", weight: 1.2, opacity: .9, fillColor: "#3f86bd", fillOpacity: .34 };
+  var DIMMED = { color: "#b9c3cd", weight: .7, opacity: .7, fillColor: "#c9d2db", fillOpacity: .10 };
 
-  var BASE = { color: "#2f6fa8", weight: 1, opacity: 0.85, fillColor: "#4a90c4", fillOpacity: 0.16 };
-  var HOVER = { weight: 2, color: "#1d5687", fillOpacity: 0.30 };
-  var PICKED = { weight: 2.5, color: "#b4531f", fillColor: "#e08b3e", fillOpacity: 0.42 };
+  // When a district is chosen, its precincts stay saturated and the rest dim.
+  var filterKey = null, filterVal = null;
 
-  var byNumber = {};
-  var picked = null;
-
-  function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
-      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  function styleFor(props) {
+    if (!filterKey) return BASE;
+    return props[filterKey] === filterVal ? IN_DIST : DIMMED;
+  }
+  function restyleAll() {
+    features.forEach(function (f) {
+      if (f.layer !== picked) f.layer.setStyle(styleFor(f.props));
     });
   }
 
-  function commas(n) {
-    return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  }
+  var byNumber = {};
+  var features = [];
+  var picked = null;
+  var addrMarker = null;
 
   function popupHtml(p) {
     var rows = [
       ["School Board", p.school_board],
       ["City Council", p.council],
+      ["RTD", p.rtd],
       ["State House", p.house],
       ["State Senate", p.senate],
       ["Congress", p.cong]
@@ -181,60 +220,273 @@
           '<div class="row"><span class="v">' + commas(p.active) + "</span>" +
           '<span class="k">active voters</span></div>' +
           (typeof p.registered === "number"
-            ? '<div class="sub">' + commas(p.registered) +
-              " registered, " + commas(p.inactive || 0) + " inactive</div>"
+            ? '<div class="sub">' + commas(p.registered) + " registered, " +
+              commas(p.inactive || 0) + " inactive</div>"
             : "") +
         "</div>";
-    } else if (typeof p.registered === "number") {
-      voters = '<div class="stat"><div class="row"><span class="v">' +
-        commas(p.registered) + '</span><span class="k">registered voters</span></div></div>';
     } else {
       voters = '<div class="stat none">Registered voter count not loaded</div>';
     }
 
-    return (
-      '<div class="pop">' +
-        '<div class="lbl">Precinct</div>' +
-        '<div class="num">' + esc(p.precinct) + "</div>" +
-        (p.neighborhood ? '<div class="hood">' + esc(p.neighborhood) + "</div>" : "") +
-        voters +
-        (rows.length
-          ? "<dl>" + rows.map(function (r) {
-              return "<dt>" + r[0] + "</dt><dd>" + esc(r[1]) + "</dd>";
-            }).join("") + "</dl>"
-          : "") +
-        (p.school_board_director
-          ? '<div class="dir">Director ' + esc(p.school_board_director) + "</div>"
-          : "") +
-        (p.precinct_code ? '<div class="code">Code ' + esc(p.precinct_code) + "</div>" : "") +
-      "</div>"
-    );
+    return '<div class="pop">' +
+      '<div class="lbl">Precinct</div>' +
+      '<div class="num">' + esc(p.precinct) + "</div>" +
+      (p.neighborhood ? '<div class="hood">' + esc(p.neighborhood) + "</div>" : "") +
+      voters +
+      (rows.length ? "<dl>" + rows.map(function (r) {
+        return "<dt>" + r[0] + "</dt><dd>" + esc(r[1]) + "</dd>";
+      }).join("") + "</dl>" : "") +
+      (p.precinct_code ? '<div class="code">Code ' + esc(p.precinct_code) + "</div>" : "") +
+      "</div>";
   }
 
-  function selectLayer(layer, fly) {
-    if (picked && picked !== layer) layers.resetStyle(picked);
+  function selectLayer(layer) {
+    if (picked && picked !== layer) {
+      picked.setStyle(styleFor((picked.feature && picked.feature.properties) || {}));
+    }
     picked = layer;
     layer.setStyle(PICKED);
     layer.bringToFront();
-    if (fly) map.flyToBounds(layer.getBounds(), { padding: [70, 70], maxZoom: 15, duration: 0.6 });
-    layer.openPopup();
+    // Zoom so the precinct sits comfortably inside the viewport.
+    map.flyToBounds(layer.getBounds(), { padding: PAD, maxZoom: 16, duration: .6 });
+    map.once("moveend", function () { layer.openPopup(); });
   }
 
   var layers = L.geoJSON(null, {
-    style: function () { return BASE; },
+    style: function (feature) { return styleFor(feature.properties || {}); },
     onEachFeature: function (feature, layer) {
       var p = feature.properties || {};
       byNumber[String(p.precinct)] = layer;
+      features.push({ props: p, layer: layer, geom: feature.geometry });
       layer.bindPopup(popupHtml(p), { closeButton: true, autoPanPadding: [30, 30] });
-      layer.bindTooltip(String(p.precinct), { sticky: true, direction: "top", opacity: 0.9 });
+      layer.bindTooltip(String(p.precinct), { sticky: true, direction: "top", opacity: .9 });
       layer.on({
         mouseover: function () { if (layer !== picked) { layer.setStyle(HOVER); layer.bringToFront(); } },
-        mouseout:  function () { if (layer !== picked) layers.resetStyle(layer); },
-        click:     function () { selectLayer(layer, false); }
+        mouseout:  function () { if (layer !== picked) layer.setStyle(styleFor(p)); },
+        click:     function () { selectLayer(layer); }
       });
     }
   }).addTo(map);
 
+  // ---- district zoom ---------------------------------------------------
+  var DISTRICTS = [
+    { key: "council",      el: "dCouncil", label: "council district" },
+    { key: "school_board", el: "dSchool",  label: "school board district" },
+    { key: "rtd",          el: "dRtd",     label: "RTD district" },
+    { key: "senate",       el: "dSenate",  label: "state senate district" },
+    { key: "house",        el: "dHouse",   label: "state house district" }
+  ];
+
+  function sortVals(a, b) {
+    var na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  }
+
+  function buildDistrictMenus() {
+    DISTRICTS.forEach(function (d) {
+      var sel = document.getElementById(d.el);
+      var vals = [];
+      features.forEach(function (f) {
+        var v = f.props[d.key];
+        if (v && vals.indexOf(v) === -1) vals.push(v);
+      });
+      vals.sort(sortVals);
+
+      sel.innerHTML = '<option value="">All</option>' +
+        vals.map(function (v) {
+          return '<option value="' + esc(v) + '">' + esc(v) + "</option>";
+        }).join("");
+
+      sel.addEventListener("change", function () {
+        var v = sel.value;
+        DISTRICTS.forEach(function (o) {           // one district at a time
+          if (o.el !== d.el) document.getElementById(o.el).value = "";
+        });
+        if (!v) { filterKey = filterVal = null; restyleAll(); zoomDenver(); return; }
+
+        filterKey = d.key; filterVal = v;
+        var bounds = null, n = 0, active = 0;
+        features.forEach(function (f) {
+          if (f.props[d.key] !== v) return;
+          n += 1;
+          active += f.props.active || 0;
+          bounds = bounds ? bounds.extend(f.layer.getBounds()) : L.latLngBounds(f.layer.getBounds());
+        });
+        if (!bounds) { say("No precincts in that district.", true); return; }
+        clearSelection();
+        restyleAll();
+        map.flyToBounds(bounds, { padding: [40, 40], duration: .7 });
+        say(d.label.replace(/^./, function (c) { return c.toUpperCase(); }) + " " + v +
+            ": " + n + " precinct" + (n === 1 ? "" : "s") +
+            (active ? ", " + commas(active) + " active voters" : "") + ".");
+      });
+    });
+  }
+
+  function clearSelection() {
+    if (picked) {
+      picked.setStyle(styleFor((picked.feature && picked.feature.properties) || {}));
+      picked = null;
+    }
+    map.closePopup();
+    if (addrMarker) { map.removeLayer(addrMarker); addrMarker = null; }
+  }
+
+  function resetDistrictMenus() {
+    DISTRICTS.forEach(function (d) { document.getElementById(d.el).value = ""; });
+    if (filterKey) { filterKey = filterVal = null; restyleAll(); }
+  }
+
+  function zoomDenver() {
+    if (!layers.getLayers().length) return;
+    map.flyToBounds(layers.getBounds(), { padding: [20, 20], duration: .7 });
+  }
+
+  document.getElementById("zoomDenver").addEventListener("click", function () {
+    resetDistrictMenus();
+    clearSelection();
+    zoomDenver();
+    say("Showing all of Denver County.");
+  });
+
+  // ---- box zoom --------------------------------------------------------
+  var boxBtn = document.getElementById("boxBtn");
+  var boxOn = false, boxStart = null, boxRect = null;
+
+  function setBoxMode(on) {
+    boxOn = on;
+    boxBtn.classList.toggle("on", on);
+    boxBtn.textContent = on ? "Cancel box" : "Box zoom";
+    var c = map.getContainer();
+    c.classList.toggle("boxzoom-on", on);
+    if (on) {
+      map.dragging.disable();
+      say("Drag a box on the map to zoom into it.");
+    } else {
+      map.dragging.enable();
+      if (boxRect) { map.removeLayer(boxRect); boxRect = null; }
+      boxStart = null;
+    }
+  }
+
+  boxBtn.addEventListener("click", function () { setBoxMode(!boxOn); });
+
+  map.on("mousedown", function (e) {
+    if (!boxOn) return;
+    boxStart = e.latlng;
+    boxRect = L.rectangle(L.latLngBounds(boxStart, boxStart), {
+      color: "#b4531f", weight: 1.5, dashArray: "4 3",
+      fillColor: "#e08b3e", fillOpacity: .12, interactive: false
+    }).addTo(map);
+  });
+
+  map.on("mousemove", function (e) {
+    if (!boxOn || !boxStart || !boxRect) return;
+    boxRect.setBounds(L.latLngBounds(boxStart, e.latlng));
+  });
+
+  map.on("mouseup", function (e) {
+    if (!boxOn || !boxStart) return;
+    var b = L.latLngBounds(boxStart, e.latlng);
+    var px = map.latLngToContainerPoint(b.getNorthEast())
+              .distanceTo(map.latLngToContainerPoint(b.getSouthWest()));
+    setBoxMode(false);
+    resetDistrictMenus();
+    if (px < 12) { say("Box was too small. Try dragging a larger area."); return; }
+    map.flyToBounds(b, { padding: [10, 10], duration: .6 });
+    say("Zoomed to the selected area.");
+  });
+
+  // ---- point in polygon (for address lookup) ---------------------------
+  function ringHas(ring, lng, lat) {
+    var inside = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if ((yi > lat) !== (yj > lat) &&
+          lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+  function polyHas(poly, lng, lat) {
+    if (!poly.length || !ringHas(poly[0], lng, lat)) return false;
+    for (var h = 1; h < poly.length; h++) {
+      if (ringHas(poly[h], lng, lat)) return false;   // in a hole
+    }
+    return true;
+  }
+  function precinctAt(lat, lng) {
+    for (var i = 0; i < features.length; i++) {
+      var g = features[i].geom;
+      if (!g) continue;
+      if (g.type === "Polygon") {
+        if (polyHas(g.coordinates, lng, lat)) return features[i];
+      } else if (g.type === "MultiPolygon") {
+        for (var k = 0; k < g.coordinates.length; k++) {
+          if (polyHas(g.coordinates[k], lng, lat)) return features[i];
+        }
+      }
+    }
+    return null;
+  }
+
+  // ---- search: precinct number or street address -----------------------
+  var findBtn = document.getElementById("findBtn");
+
+  function findPrecinct(num) {
+    var layer = byNumber[num];
+    if (!layer) { say("No precinct " + num + " in Denver County.", true); return; }
+    resetDistrictMenus();
+    clearSelection();
+    say("Showing precinct " + num + ".");
+    selectLayer(layer);
+  }
+
+  function findAddress(q) {
+    findBtn.disabled = true;
+    say("Looking up that address…");
+    fetch("/api/geocode?q=" + encodeURIComponent(q))
+      .then(function (res) { return res.json().then(function (j) { return { ok: res.ok, j: j }; }); })
+      .then(function (r) {
+        if (!r.ok || r.j.error) throw new Error(r.j.error || "lookup failed");
+        var lat = r.j.lat, lon = r.j.lon;
+        var hit = precinctAt(lat, lon);
+        resetDistrictMenus();
+        clearSelection();
+        addrMarker = L.circleMarker([lat, lon], {
+          radius: 6, color: "#b4531f", weight: 2,
+          fillColor: "#e08b3e", fillOpacity: .9, className: "addr-pin"
+        }).addTo(map);
+
+        if (!hit) {
+          map.flyTo([lat, lon], 14, { duration: .6 });
+          say("Found " + (r.j.name || q) + ", but it is outside Denver County precincts.", true);
+          return;
+        }
+        say(r.j.name ? r.j.name : q);
+        picked = hit.layer;
+        hit.layer.setStyle(PICKED);
+        hit.layer.bringToFront();
+        map.flyToBounds(hit.layer.getBounds(), { padding: PAD, maxZoom: 16, duration: .6 });
+        map.once("moveend", function () { hit.layer.openPopup(); });
+      })
+      .catch(function (err) {
+        say("Could not find that address. " + err.message, true);
+      })
+      .then(function () { findBtn.disabled = false; });
+  }
+
+  document.getElementById("searchForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = document.getElementById("q").value.trim();
+    if (!q) { say("Enter an address or a precinct number."); return; }
+    if (/^\d{1,4}$/.test(q)) findPrecinct(q);
+    else findAddress(q);
+  });
+
+  // ---- load ------------------------------------------------------------
   fetch("/data/precincts.geojson", { cache: "force-cache" })
     .then(function (res) {
       if (!res.ok) throw new Error("HTTP " + res.status + " loading precincts.geojson");
@@ -250,23 +502,14 @@
       document.getElementById("count").textContent =
         n + " precinct" + (n === 1 ? "" : "s") +
         (active ? " · " + commas(active) + " active voters" : " · Denver County");
+      buildDistrictMenus();
       map.fitBounds(layers.getBounds(), { padding: [20, 20] });
-      say("Click any precinct to see its number.");
+      say("Click any precinct to zoom in and see its details.");
     })
     .catch(function (err) {
       document.getElementById("count").textContent = "Precinct data unavailable";
       say("Could not load precinct boundaries. " + err.message, true);
     });
-
-  document.getElementById("searchForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var q = document.getElementById("q").value.trim();
-    if (!q) { say("Enter a precinct number."); return; }
-    var layer = byNumber[q];
-    if (!layer) { say("No precinct " + q + " in Denver County.", true); return; }
-    say("Showing precinct " + q + ".");
-    selectLayer(layer, true);
-  });
 })();
 </script>
 </body>

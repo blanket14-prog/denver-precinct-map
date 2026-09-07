@@ -181,15 +181,15 @@ def main():
         rec = dict(zip(fields, list(sr.record)))
         geom = project(shape(sr.shape.__geo_interface__)).buffer(0)
 
-        board, director = "", ""
+        board = ""
         best = 0.0
-        for num, name, bg in boards:
+        for num, _name, bg in boards:
             try:
                 a = geom.intersection(bg).area
             except Exception:
                 continue
             if a > best:
-                best, board, director = a, num, name
+                best, board = a, num
 
         num = str(rec.get("PRECINCT_N", "")).strip()
         if not board:
@@ -207,8 +207,8 @@ def main():
             "senate": str(rec.get("SENATE_DIS", "")).strip(),
             "house": str(rec.get("HOUSE_DIST", "")).strip(),
             "council": str(rec.get("COUNCIL_DI", "")).strip(),
+            "rtd": str(rec.get("RTD_DIST", "")).strip(),
             "school_board": board,
-            "school_board_director": director,
             "neighborhood": str(rec.get("STAT_NBHD", "")).strip(),
         }
         if reg is not None:

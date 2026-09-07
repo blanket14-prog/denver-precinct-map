@@ -705,7 +705,7 @@
     { key: "senate",  label: "State Senate", color: "#be123c" },
     { key: "house",   label: "State House",  color: "#0f172a" },
     { key: "nbhd",    label: "Neighborhoods", color: "#a21caf",
-      weight: 2, small: true, minLabelZoom: 13 }
+      small: true, minLabelZoom: 13 }
   ];
 
   function swatch(color, label) {
@@ -756,9 +756,7 @@
             interactive: false,
             style: {
               color: d.color,
-              // 4x the precinct weight of 1. Neighbourhoods are a contextual
-              // layer with 78 outlines, so they run lighter.
-              weight: d.weight || 4,
+              weight: d.weight || 4,   // 4x the precinct weight of 1
               opacity: 1,
               fill: false,
               lineJoin: "round",

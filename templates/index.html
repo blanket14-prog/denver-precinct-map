@@ -195,6 +195,9 @@
   /* the number is already painted on the precinct, so drop the hover chip */
   .pnum-on .leaflet-tooltip{display:none!important}
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
+  .verbadge{background:rgba(255,255,255,.85);border-radius:3px;padding:1px 6px;
+            font-size:10.5px;line-height:1.5;color:#7a828c;font-variant-numeric:tabular-nums;
+            box-shadow:0 0 0 1px rgba(0,0,0,.06)}
 
   /* election legend, under the contest picker */
   .legend{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
@@ -352,6 +355,18 @@
   });
   // bottom-left is the layers panel now, so the scale goes right
   L.control.scale({ imperial: true, metric: false, position: "bottomright" }).addTo(map);
+
+  // A build number in the corner, so it is obvious whether the browser is
+  // showing the current deploy or a cached copy of an older one.
+  var VersionBadge = L.Control.extend({
+    onAdd: function () {
+      var el = L.DomUtil.create("div", "verbadge");
+      el.textContent = "v{{ version }}";
+      el.title = "Build {{ version }}";
+      return el;
+    }
+  });
+  new VersionBadge({ position: "bottomright" }).addTo(map);
 
   // District outlines live in their own pane above the precinct canvas, so a
   // selected precinct brought to the front can never cover them, and so they

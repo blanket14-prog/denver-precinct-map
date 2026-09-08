@@ -29,6 +29,11 @@ _geo_cache = {}
 GEO_CACHE_MAX = 500
 
 
+# Shown in the map's bottom-right corner and returned by /healthz, so it is
+# obvious at a glance whether a browser is on the current deploy or a cached
+# copy. Bump this with every change that ships.
+APP_VERSION = "21"
+
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json")
 _geojson_ver = {}
 
@@ -78,6 +83,7 @@ def index():
             data_url="/data/precincts.geojson?v=" + geojson_version("precincts.geojson"),
             districts_url="/data/districts.geojson?v=" + geojson_version("districts.geojson"),
             elections_url="/data/elections.json?v=" + geojson_version("elections.json"),
+            version=APP_VERSION,
         )
     )
     resp.headers["Cache-Control"] = "no-cache"
@@ -174,7 +180,8 @@ def healthz():
                if not os.path.exists(os.path.join(DATA_DIR, f))]
     if missing:
         app.logger.error("HEALTHCHECK missing data files: %s", missing)
-    return jsonify({"ok": not missing, "missing": missing}), (200 if not missing else 500)
+    return jsonify({"ok": not missing, "version": APP_VERSION,
+                    "missing": missing}), (200 if not missing else 500)
 
 
 if __name__ == "__main__":

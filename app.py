@@ -29,7 +29,7 @@ _geo_cache = {}
 GEO_CACHE_MAX = 500
 
 
-DATA_FILES = ("precincts.geojson", "districts.geojson")
+DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json")
 _geojson_ver = {}
 
 
@@ -77,22 +77,24 @@ def index():
             "index.html",
             data_url="/data/precincts.geojson?v=" + geojson_version("precincts.geojson"),
             districts_url="/data/districts.geojson?v=" + geojson_version("districts.geojson"),
+            elections_url="/data/elections.json?v=" + geojson_version("elections.json"),
         )
     )
     resp.headers["Cache-Control"] = "no-cache"
     return resp
 
 
-@app.route("/data/<name>.geojson")
-def geojson(name):
-    fname = name + ".geojson"
+@app.route("/data/<name>.<ext>")
+def geojson(name, ext):
+    fname = name + "." + ext
     if fname not in DATA_FILES:
         return jsonify({"error": "unknown data file"}), 404
     path = os.path.join(DATA_DIR, fname)
     if not os.path.exists(path):
         app.logger.error("MISSING DATA FILE: %s", path)
         return jsonify({"error": fname + " not found on server"}), 500
-    resp = send_from_directory(DATA_DIR, fname, mimetype="application/geo+json")
+    mime = "application/geo+json" if ext == "geojson" else "application/json"
+    resp = send_from_directory(DATA_DIR, fname, mimetype=mime)
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
 

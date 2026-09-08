@@ -76,6 +76,7 @@
   .sec.fold.closed h2 .fc{transform:rotate(-90deg)}
   .sec.fold:not(.closed) h2{margin-bottom:7px}
   .sec.fold.closed .rows,
+  .sec.fold.closed .legend,
   .sec.fold.closed .dist{display:none}
   .btnrow{display:flex;gap:7px;margin-bottom:10px}
   .btnrow.always{margin:0;padding:0 15px 11px;flex:none}
@@ -195,6 +196,23 @@
   .pnum-on .leaflet-tooltip{display:none!important}
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
 
+  /* election legend, under the contest picker */
+  .legend{margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .legend .lg-title{font-size:11px;color:var(--muted);margin-bottom:6px;line-height:1.35}
+  .legend .lg-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .legend .lg-ramp{display:flex;flex:none;border:1px solid rgba(0,0,0,.18);border-radius:3px;overflow:hidden}
+  .legend .lg-ramp i{display:block;width:16px;height:12px}
+  .legend .lg-name{font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .legend .lg-name b{font-weight:600}
+  .legend .lg-n{color:var(--muted);font-variant-numeric:tabular-nums}
+  .legend .lg-scale{margin:0 0 7px;font-size:10.5px;color:var(--muted);line-height:1.4}
+  .d-elect{display:flex;align-items:baseline;gap:7px;flex:none;font-size:12.5px;
+           white-space:nowrap;padding-right:14px;border-right:1px solid var(--line)}
+  .d-elect .k{font-size:11px;color:var(--muted)}
+  .d-elect b{font-weight:600}
+  .d-elect .sw{width:11px;height:11px;border-radius:2px;border:1px solid rgba(0,0,0,.2);
+               display:inline-block;position:relative;top:1px}
+
   @media (max-width:700px){
     /* keep clear of the zoom buttons in the top-right corner. The layer
        sections fold away, so the panel can afford more height here. */
@@ -240,6 +258,12 @@
       </div>
     </div>
 
+    <div class="sec fold closed" id="electSec">
+      <h2><button type="button" aria-expanded="false">School Board Elections<span class="fc">&#9662;</span></button></h2>
+      <div class="rows" id="electRows"></div>
+      <div class="legend" id="electLegend" hidden></div>
+    </div>
+
     <div class="sec fold closed">
       <h2><button type="button" aria-expanded="false">Basemap<span class="fc">&#9662;</span></button></h2>
       <div class="rows" id="baseRows"></div>
@@ -278,6 +302,7 @@
     <span class="d-hood" id="dHood"></span>
   </div>
   <div class="d-stat" id="dStat"></div>
+  <div class="d-elect" id="dElect" hidden></div>
   <div class="d-rows" id="dRows"></div>
   <div class="d-code" id="dCode"></div>
 </div>
@@ -298,6 +323,12 @@
   toggle.addEventListener("click", function () {
     setCollapsed(!panel.classList.contains("collapsed"));
   });
+
+  // Once a setting has been changed the panel has done its job, so the next
+  // touch of the map folds it away instead of leaving it over the county.
+  function collapseOnMapUse() {
+    if (!panel.classList.contains("collapsed")) setCollapsed(true);
+  }
 
   function say(msg, isErr) {
     note.textContent = msg || "";
@@ -423,6 +454,11 @@
   // Added after the layers control so it stacks directly beneath it.
   L.control.zoom({ position: "topright", zoomInTitle: "Zoom in", zoomOutTitle: "Zoom out" }).addTo(map);
 
+  // A click anywhere on the map, precincts included, closes the panel. Not
+  // while a box is being drawn: that click is the box, and the panel bar
+  // holds the Cancel button.
+  map.on("click", function () { if (!boxOn) collapseOnMapUse(); });
+
   // ---- precinct layer --------------------------------------------------
   var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
   var HOVER = { weight: 2, color: "#1d5687", fillOpacity: .30 };
@@ -433,9 +469,48 @@
   // When a district is chosen, its precincts stay saturated and the rest dim.
   var filterKey = null, filterVal = null;
 
+  // ---- election choropleth ----------------------------------------------
+  // Denver reports a precinct's result as the leading candidate plus a 25%
+  // band, never an exact count, so the map can only be four steps deep. One
+  // ramp per candidate, darkest at the top band, following the Tableau viz
+  // these numbers come from. Slot 0 goes to whoever led the most precincts.
+  var RAMPS = [
+    ["#c6dbef", "#82badb", "#3182bd", "#08519c"],   // blue
+    ["#fdd9a8", "#fdae6b", "#e6550d", "#a63603"],   // orange
+    ["#c7e9c0", "#a1d99b", "#41ab5d", "#006d2c"],   // green
+    ["#dadaeb", "#bcbddc", "#807dba", "#54278f"]    // purple
+  ];
+  var TIED_COLOR = "#9aa1a8";
+
+  var elections = null;      // { bands: [...], contests: [...] }
+  var contest = null;        // the contest currently shaded, or null
+
+  function electFill(cell) {
+    if (!cell || cell[0] < 0) return TIED_COLOR;
+    return RAMPS[cell[0] % RAMPS.length][cell[1]];
+  }
+  function electStyle(cell) {
+    // A neutral hairline instead of the usual blue: at these fill strengths a
+    // coloured precinct edge fights the fill it is drawn against.
+    return { color: "#6b7280", weight: .8, opacity: .8,
+             fillColor: electFill(cell), fillOpacity: .82 };
+  }
+
   function styleFor(props) {
+    if (contest) {
+      var cell = contest.precincts[props.precinct];
+      // A district race covers only its own precincts; the rest of the county
+      // had no such contest on the ballot, so it drops back.
+      return cell ? electStyle(cell) : DIMMED;
+    }
     if (!filterKey) return BASE;
     return props[filterKey] === filterVal ? IN_DIST : DIMMED;
+  }
+  function hoverStyle(props) {
+    if (!contest) return HOVER;
+    var s = styleFor(props);
+    return { color: "#1f2937", weight: 2.2, opacity: 1,
+             fillColor: s.fillColor, fillOpacity: s.fillOpacity };
   }
   function restyleAll() {
     features.forEach(function (f) {
@@ -487,6 +562,26 @@
       return '<span class="r"><span>' + r[0] + "</span><b>" + esc(r[1]) + "</b></span>";
     }).join("");
 
+    var el = document.getElementById("dElect");
+    var cell = contest ? contest.precincts[p.precinct] : null;
+    if (contest && cell) {
+      el.innerHTML =
+        '<span class="k">' + esc(contest.label) + "</span>" +
+        '<span class="sw" style="background:' + electFill(cell) + '"></span>' +
+        (cell[0] < 0
+          ? "<b>Tied</b>"
+          : "<b>" + esc(contest.cands[cell[0]]) + "</b> " +
+            esc(elections.bands[cell[1]]));
+      el.hidden = false;
+    } else if (contest) {
+      el.innerHTML = '<span class="k">' + esc(contest.label) +
+                     "</span><b>Not on this ballot</b>";
+      el.hidden = false;
+    } else {
+      el.hidden = true;
+      el.innerHTML = "";
+    }
+
     document.getElementById("dCode").textContent =
       p.precinct_code ? "Code " + p.precinct_code : "";
 
@@ -534,7 +629,7 @@
       features.push({ props: p, layer: layer, geom: feature.geometry });
       layer.bindTooltip(String(p.precinct), { sticky: true, direction: "top", opacity: .9 });
       layer.on({
-        mouseover: function () { if (layer !== picked) { layer.setStyle(HOVER); layer.bringToFront(); } },
+        mouseover: function () { if (layer !== picked) { layer.setStyle(hoverStyle(p)); layer.bringToFront(); } },
         mouseout:  function () { if (layer !== picked) layer.setStyle(styleFor(p)); },
         click:     function () {
           // clicking the selected precinct again lets it go
@@ -635,6 +730,7 @@
     if (boxOn) setBoxMode(false);
     document.getElementById("q").value = "";
     resetDistrictMenus();
+    setContest(null);
     clearSelection();
     zoomDenver();
     say("");
@@ -927,6 +1023,104 @@
     });
 
 
+  // ---- school board elections -------------------------------------------
+  var electRows = document.getElementById("electRows");
+  var electLegend = document.getElementById("electLegend");
+
+  function setContest(c) {
+    contest = c || null;
+    buildLegend();
+    restyleAll();
+    if (picked) {
+      // the selection keeps its own colour, but its readout has to follow
+      showDetail((picked.feature && picked.feature.properties) || {});
+    }
+    var input = electRows.querySelector(
+      'input[value="' + (contest ? contest.key : "") + '"]');
+    if (input) input.checked = true;
+  }
+
+  function buildLegend() {
+    if (!contest) { electLegend.hidden = true; electLegend.innerHTML = ""; return; }
+
+    // Only show the bands this contest actually produced. Every precinct in
+    // the 2023 District 1 race fell in one band, and four swatches there would
+    // suggest a spread that is not in the data.
+    var used = {}, anyTied = false;
+    for (var k in contest.precincts) {
+      var cell = contest.precincts[k];
+      if (cell[0] < 0) anyTied = true; else used[cell[1]] = true;
+    }
+    var bands = [];
+    for (var i = 0; i < elections.bands.length; i++) if (used[i]) bands.push(i);
+
+    var names = bands.map(function (b) { return elections.bands[b]; });
+    var html = '<div class="lg-title">' + esc(contest.title) + ", " + contest.year +
+               ". Denver publishes a 25% band per precinct, never a count.</div>" +
+               '<div class="lg-scale">' +
+               (names.length > 1
+                 ? "Light to dark: " + esc(names.join(", "))
+                 : "Every precinct fell in " + esc(names[0])) +
+               "</div>";
+    contest.cands.forEach(function (name, ci) {
+      var ramp = RAMPS[ci % RAMPS.length];
+      html += '<div class="lg-row"><span class="lg-ramp">' +
+        bands.map(function (b) {
+          return '<i style="background:' + ramp[b] + '" title="' +
+                 esc(elections.bands[b]) + '"></i>';
+        }).join("") +
+        '</span><span class="lg-name"><b>' + esc(name) + "</b> " +
+        '<span class="lg-n">' + contest.led[ci] + "</span></span></div>";
+    });
+    if (anyTied) {
+      html += '<div class="lg-row"><span class="lg-ramp"><i style="background:' +
+              TIED_COLOR + '"></i></span>' +
+              '<span class="lg-name">Tied <span class="lg-n">' +
+              contest.tied + "</span></span></div>";
+    }
+    electLegend.innerHTML = html;
+    electLegend.hidden = false;
+  }
+
+  function electRow(label, value, checked) {
+    var row = document.createElement("label");
+    var input = document.createElement("input");
+    input.type = "radio";
+    input.name = "contest";
+    input.value = value;
+    input.checked = !!checked;
+    input.addEventListener("change", function () {
+      if (!input.checked) return;
+      setContest(byContest[input.value] || null);
+    });
+    row.appendChild(input);
+    var sw = document.createElement("span");
+    sw.className = "nosw";
+    row.appendChild(sw);
+    row.appendChild(document.createTextNode(label));
+    electRows.appendChild(row);
+  }
+
+  var byContest = {};
+  var electionsReady = fetch("{{ elections_url }}")
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (doc) {
+      elections = doc;
+      electRow("None", "", true);
+      doc.contests.forEach(function (c) {
+        byContest[c.key] = c;
+        electRow(c.label, c.key, false);
+      });
+    })
+    .catch(function (err) {
+      electRows.innerHTML =
+        '<span class="lg-n" style="font-size:11.5px">Election results unavailable</span>';
+      console.error("[precinct-map] elections unavailable: " + err.message);
+    });
+
   // ---- big numbers on the map -------------------------------------------
   // 301 precinct numbers at county zoom is unreadable mush, and so is 78
   // neighbourhood names, so both only appear once there is room to place
@@ -1077,6 +1271,7 @@
     if (filterKey && filterVal && FILTER_CODE[filterKey]) {
       out.push("f" + FILTER_CODE[filterKey] + filterVal);
     }
+    if (contest) out.push("e" + contest.key);
     if (picked && picked.feature && picked.feature.properties) {
       out.push("p" + picked.feature.properties.precinct);
     }
@@ -1104,9 +1299,11 @@
       });
     }
 
-    var view = null, wantFilter = null, wantPrecinct = null;
+    var view = null, wantFilter = null, wantPrecinct = null, wantContest = null;
     segs.slice(1).forEach(function (seg) {
-      if (seg.charAt(0) === "f") {
+      if (seg.charAt(0) === "e") {
+        wantContest = seg.slice(1);
+      } else if (seg.charAt(0) === "f") {
         var key = CODE_FILTER[seg.charAt(1)];
         if (key) wantFilter = { key: key, val: seg.slice(2) };
       } else if (seg.charAt(0) === "p") {
@@ -1133,13 +1330,22 @@
         }
       }
     }
+    if (wantContest && byContest[wantContest]) {
+      setContest(byContest[wantContest]);
+      var esec = document.getElementById("electSec");
+      if (esec) {
+        esec.classList.remove("closed");
+        var ebtn = esec.querySelector("h2 button");
+        if (ebtn) ebtn.setAttribute("aria-expanded", "true");
+      }
+    }
     if (wantPrecinct && byNumber[wantPrecinct]) {
       selectLayer(byNumber[wantPrecinct]);
     }
     if (view && !wantPrecinct) {
       map.setView([view.lat, view.lng], view.zoom, { animate: false });
     }
-    if (wantFilter || wantPrecinct) setCollapsed(true);
+    if (wantFilter || wantPrecinct || wantContest) setCollapsed(true);
   }
 
   function describeState() {
@@ -1155,6 +1361,7 @@
       out += " \u00b7 " + label.replace(/^./, function (c) { return c.toUpperCase(); }) +
              " " + filterVal;
     }
+    if (contest) out += " \u00b7 " + contest.title + " " + contest.year;
     if (picked && picked.feature && picked.feature.properties) {
       out += " \u00b7 precinct " + picked.feature.properties.precinct;
     }

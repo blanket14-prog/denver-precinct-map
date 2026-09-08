@@ -210,9 +210,29 @@
   .legend .lg-name b{font-weight:600}
   .legend .lg-n{color:var(--muted);font-variant-numeric:tabular-nums}
   .legend .lg-scale{margin:0 0 7px;font-size:10.5px;color:var(--muted);line-height:1.4}
-  .legend .lg-bar{height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.18)}
+  .legend .lg-bar{position:relative;height:11px;border-radius:3px;overflow:hidden;
+                  border:1px solid rgba(0,0,0,.18)}
+  .legend .lg-bar i{position:absolute;left:0;top:0;bottom:0;width:0;
+                    background:rgba(246,247,249,.82);border-right:1px solid rgba(0,0,0,.22)}
   .legend .lg-ends{display:flex;justify-content:space-between;margin-top:3px;
                    font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+  /* sits directly under the ramp so the handle reads against the colour it cuts */
+  .legend .lg-slider{-webkit-appearance:none;appearance:none;display:block;
+                     width:100%;margin:5px 0 0;background:transparent;cursor:ew-resize}
+  .legend .lg-slider:focus{outline:none}
+  .legend .lg-slider::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:var(--line)}
+  .legend .lg-slider::-moz-range-track{height:3px;border-radius:2px;background:var(--line)}
+  .legend .lg-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+      width:14px;height:14px;margin-top:-5.5px;border-radius:50%;
+      background:#2d5a85;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+  .legend .lg-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+      background:#2d5a85;border:2px solid #fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+  .legend .lg-cutline{display:flex;justify-content:space-between;align-items:baseline;
+                      gap:8px;margin-top:6px;font-size:11.5px}
+  .legend .lg-cutline b{font-weight:600;font-variant-numeric:tabular-nums}
+  .legend .lg-cutline .n{color:var(--muted);font-variant-numeric:tabular-nums}
+  .legend .lg-cutline button{border:0;background:none;padding:0;font:inherit;
+      font-size:11px;color:var(--accent);text-decoration:underline;cursor:pointer}
   .d-elect{display:flex;align-items:baseline;gap:7px;flex:none;font-size:12.5px;
            white-space:nowrap;padding-right:14px;border-right:1px solid var(--line)}
   .d-elect .k{font-size:11px;color:var(--muted)}
@@ -486,11 +506,16 @@
   map.on("click", function () { if (!boxOn) collapseOnMapUse(); });
 
   // ---- precinct layer --------------------------------------------------
-  var BASE = { color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
-  var HOVER = { weight: 2, color: "#1d5687", fillOpacity: .30 };
-  var PICKED = { weight: 2.5, color: "#b4531f", fillColor: "#e08b3e", fillOpacity: .42 };
-  var IN_DIST = { color: "#22557f", weight: 1.2, opacity: .9, fillColor: "#3f86bd", fillOpacity: .34 };
-  var DIMMED = { color: "#b9c3cd", weight: .7, opacity: .7, fillColor: "#c9d2db", fillOpacity: .10 };
+  // stroke and fill are spelled out on every visible style: the returns slider
+  // hides a precinct by turning both off, and setStyle merges, so a style that
+  // stays silent about them would leave it hidden.
+  var SHOWN = { stroke: true, fill: true };
+  var HIDDEN = { stroke: false, fill: false };
+  var BASE = { stroke: true, fill: true, color: "#2f6fa8", weight: 1, opacity: .85, fillColor: "#4a90c4", fillOpacity: .16 };
+  var HOVER = { stroke: true, fill: true, weight: 2, color: "#1d5687", fillOpacity: .30 };
+  var PICKED = { stroke: true, fill: true, weight: 2.5, color: "#b4531f", fillColor: "#e08b3e", fillOpacity: .42 };
+  var IN_DIST = { stroke: true, fill: true, color: "#22557f", weight: 1.2, opacity: .9, fillColor: "#3f86bd", fillOpacity: .34 };
+  var DIMMED = { stroke: true, fill: true, color: "#b9c3cd", weight: .7, opacity: .7, fillColor: "#c9d2db", fillOpacity: .10 };
 
   // When a district is chosen, its precincts stay saturated and the rest dim.
   var filterKey = null, filterVal = null;
@@ -521,6 +546,7 @@
                      "#2d5a85"];
   var returns = null;        // { elections: [...] }
   var returnYear = null;     // the election currently shaded, or null
+  var returnMin = null;      // hide precincts returning below this rate
 
   function rampColor(t) {
     t = t < 0 ? 0 : (t > 1 ? 1 : t);
@@ -536,6 +562,12 @@
   // Tableau stretches the ramp across the precincts actually present, so the
   // darkest precinct is the highest return rate, not an absolute 100%.
   function returnRate(cell) { return 100 * cell[0] / cell[1]; }
+  // lo and hi are rounded to two places for display, so the lowest precinct can
+  // sit a hair under lo. At the slider's floor nothing is cut, which is what
+  // the legend says anyway.
+  function belowCut(cell) {
+    return returnYear && returnMin > returnYear.lo && returnRate(cell) < returnMin;
+  }
   function returnFill(cell) {
     var lo = returnYear.lo, hi = returnYear.hi;
     return rampColor(hi > lo ? (returnRate(cell) - lo) / (hi - lo) : .5);
@@ -555,10 +587,11 @@
   function styleFor(props) {
     if (returnYear) {
       var cell = returnYear.precincts[props.precinct];
-      return cell
-        ? { color: "#6b7280", weight: .8, opacity: .8,
-            fillColor: returnFill(cell), fillOpacity: .85 }
-        : DIMMED;
+      if (!cell) return HIDDEN;
+      if (belowCut(cell)) return HIDDEN;
+      return { stroke: true, fill: true,
+               color: "#6b7280", weight: .8, opacity: .8,
+               fillColor: returnFill(cell), fillOpacity: .85 };
     }
     if (contest) {
       var cell = contest.precincts[props.precinct];
@@ -652,12 +685,14 @@
 
     var rt = document.getElementById("dReturn");
     var rcell = returnYear ? returnYear.precincts[p.precinct] : null;
+    var rhidden = rcell && belowCut(rcell);
     if (returnYear && rcell) {
       rt.innerHTML =
         '<span class="k">' + esc(returnYear.label) + "</span>" +
         '<span class="sw" style="background:' + returnFill(rcell) + '"></span>' +
         "<b>" + returnRate(rcell).toFixed(1) + "%</b> " +
-        commas(rcell[0]) + " of " + commas(rcell[1]);
+        commas(rcell[0]) + " of " + commas(rcell[1]) +
+        (rhidden ? ' <span class="was">below the cut</span>' : "");
       rt.hidden = false;
     } else {
       rt.hidden = true;
@@ -1211,8 +1246,12 @@
   var returnLegend = document.getElementById("returnLegend");
   var byReturn = {};
 
-  function setReturnYear(e) {
+  function setReturnYear(e, threshold) {
     returnYear = e || null;
+    returnMin = returnYear
+      ? Math.min(Math.max(threshold == null ? returnYear.lo : threshold,
+                          returnYear.lo), returnYear.hi)
+      : null;
     if (returnYear && contest) setContest(null);
     buildReturnLegend();
     restyleAll();
@@ -1222,7 +1261,31 @@
     if (input) input.checked = true;
   }
 
+  var cutBar = null, cutText = null, cutCount = null, cutReset = null,
+      cutSlider = null, cutPending = false;
+
+  // Only the numbers and the cut marker change while dragging: rebuilding the
+  // legend would tear the slider out from under the pointer.
+  function paintCut() {
+    if (!returnYear || !cutBar) return;
+    var span = returnYear.hi - returnYear.lo;
+    var frac = span > 0 ? (returnMin - returnYear.lo) / span : 0;
+    cutBar.style.width = (100 * frac).toFixed(2) + "%";
+
+    var shown = 0, total = 0;
+    for (var k in returnYear.precincts) {
+      total++;
+      if (!belowCut(returnYear.precincts[k])) shown++;
+    }
+    cutText.innerHTML = returnMin > returnYear.lo
+      ? "Showing <b>" + returnMin.toFixed(1) + "%</b> and up"
+      : "Showing every precinct";
+    cutCount.textContent = shown + " of " + total;
+    cutReset.hidden = !(returnMin > returnYear.lo);
+  }
+
   function buildReturnLegend() {
+    cutBar = cutText = cutCount = cutReset = cutSlider = null;
     if (!returnYear) {
       returnLegend.hidden = true;
       returnLegend.innerHTML = "";
@@ -1237,10 +1300,42 @@
       commas(returnYear.issued) + " ballots returned citywide, " +
       rate.toFixed(1) + "%.</div>" +
       '<div class="lg-bar" style="background:linear-gradient(to right,' +
-      stops + ')"></div>' +
+      stops + ')"><i></i></div>' +
+      '<input type="range" class="lg-slider" min="' + returnYear.lo +
+      '" max="' + returnYear.hi + '" step="0.1" value="' + returnMin +
+      '" aria-label="Hide precincts returning below this rate">' +
       '<div class="lg-ends"><span>' + returnYear.lo.toFixed(2) + "%</span>" +
-      "<span>" + returnYear.hi.toFixed(2) + "%</span></div>";
+      "<span>" + returnYear.hi.toFixed(2) + "%</span></div>" +
+      '<div class="lg-cutline"><span class="t"></span>' +
+      '<span><span class="n"></span> <button type="button" hidden>Show all</button></span></div>';
+
+    cutBar = returnLegend.querySelector(".lg-bar i");
+    cutText = returnLegend.querySelector(".lg-cutline .t");
+    cutCount = returnLegend.querySelector(".lg-cutline .n");
+    cutReset = returnLegend.querySelector(".lg-cutline button");
+    cutSlider = returnLegend.querySelector(".lg-slider");
+
+    cutSlider.addEventListener("input", function () {
+      returnMin = parseFloat(cutSlider.value);
+      paintCut();
+      // 301 canvas polygons per pointer move is more than a frame can take,
+      // so coalesce the restyle
+      if (cutPending) return;
+      cutPending = true;
+      requestAnimationFrame(function () {
+        cutPending = false;
+        restyleAll();
+      });
+    });
+    cutReset.addEventListener("click", function () {
+      returnMin = returnYear.lo;
+      cutSlider.value = returnMin;
+      paintCut();
+      restyleAll();
+    });
+
     returnLegend.hidden = false;
+    paintCut();
   }
 
   function returnRow(label, value, checked) {
@@ -1431,7 +1526,10 @@
       out.push("f" + FILTER_CODE[filterKey] + filterVal);
     }
     if (contest) out.push("e" + contest.key);
-    if (returnYear) out.push("b" + returnYear.key);
+    if (returnYear) {
+      out.push("b" + returnYear.key);
+      if (returnMin > returnYear.lo) out.push("t" + returnMin.toFixed(1));
+    }
     if (picked && picked.feature && picked.feature.properties) {
       out.push("p" + picked.feature.properties.precinct);
     }
@@ -1460,12 +1558,14 @@
     }
 
     var view = null, wantFilter = null, wantPrecinct = null, wantContest = null,
-        wantReturn = null;
+        wantReturn = null, wantCut = null;
     segs.slice(1).forEach(function (seg) {
       if (seg.charAt(0) === "e") {
         wantContest = seg.slice(1);
       } else if (seg.charAt(0) === "b") {
         wantReturn = seg.slice(1);
+      } else if (seg.charAt(0) === "t") {
+        wantCut = parseFloat(seg.slice(1));
       } else if (seg.charAt(0) === "f") {
         var key = CODE_FILTER[seg.charAt(1)];
         if (key) wantFilter = { key: key, val: seg.slice(2) };
@@ -1503,7 +1603,7 @@
       }
     }
     if (wantReturn && byReturn[wantReturn]) {
-      setReturnYear(byReturn[wantReturn]);
+      setReturnYear(byReturn[wantReturn], isNaN(wantCut) ? null : wantCut);
       var rsec = document.getElementById("returnSec");
       if (rsec) {
         rsec.classList.remove("closed");
@@ -1534,7 +1634,10 @@
              " " + filterVal;
     }
     if (contest) out += " \u00b7 " + contest.title + " " + contest.year;
-    if (returnYear) out += " \u00b7 " + returnYear.label + " ballot returns";
+    if (returnYear) {
+      out += " \u00b7 " + returnYear.label + " ballot returns";
+      if (returnMin > returnYear.lo) out += " from " + returnMin.toFixed(1) + "%";
+    }
     if (picked && picked.feature && picked.feature.properties) {
       out += " \u00b7 precinct " + picked.feature.properties.precinct;
     }

@@ -68,6 +68,11 @@ return rate per precinct. Unlike the results maps this is a real count, not a
 band. Name each export `returns_<year>.tsv` (they arrive UTF-16 and
 tab-separated whatever the extension says) and put them in one directory.
 
+A slider under the legend's colour ramp raises a floor on the return rate,
+hiding every precinct below it so the strongest turnout stands out on its own.
+The greyed part of the ramp shows how much of the range is cut, and the
+threshold travels in share links.
+
 Only elections run on the current precinct map can be used. Denver redrew
 precincts for 2022, so the 2019 and 2021 exports carry 356 precincts against
 today's 301; 283 of those numbers still exist but do not cover the same ground,

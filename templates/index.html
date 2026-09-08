@@ -191,6 +191,8 @@
   .boxzoom-on .leaflet-overlay-pane{pointer-events:none!important}
   .boxzoom-on .leaflet-interactive{pointer-events:none!important;cursor:crosshair!important}
   .boxzoom-on .leaflet-tooltip{display:none!important}
+  /* the number is already painted on the precinct, so drop the hover chip */
+  .pnum-on .leaflet-tooltip{display:none!important}
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
 
   @media (max-width:700px){
@@ -337,16 +339,14 @@
   var ESRI_ATTR =
     'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
     "Precincts: Denver Open Data | Voters: CO Secretary of State";
+  // Base only, no reference layer. Esri's label tiles stop at zoom 16, so
+  // past that every place name was being upscaled into a blurry smear over
+  // the precincts. Street detail (OSM) is the option when names are wanted.
   var esriGray = L.layerGroup([
     L.tileLayer(
       "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
         "World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
       { attribution: ESRI_ATTR, maxNativeZoom: 16, maxZoom: 18 }
-    ),
-    L.tileLayer(
-      "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
-        "World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}",
-      { maxNativeZoom: 16, maxZoom: 18, pane: "shadowPane" }
     )
   ]);
   var osmMuted = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -536,7 +536,11 @@
       layer.on({
         mouseover: function () { if (layer !== picked) { layer.setStyle(HOVER); layer.bringToFront(); } },
         mouseout:  function () { if (layer !== picked) layer.setStyle(styleFor(p)); },
-        click:     function () { selectLayer(layer); }
+        click:     function () {
+          // clicking the selected precinct again lets it go
+          if (layer === picked) { clearSelection(); say(""); return; }
+          selectLayer(layer);
+        }
       });
     }
   }).addTo(map);
@@ -965,6 +969,7 @@
     } else if (!wantPrecincts && map.hasLayer(precinctLabels)) {
       map.removeLayer(precinctLabels);
     }
+    map.getContainer().classList.toggle("pnum-on", wantPrecincts);
   }
 
   function addLabelToggle(label, get, set) {

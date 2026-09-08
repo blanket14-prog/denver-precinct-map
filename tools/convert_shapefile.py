@@ -17,6 +17,7 @@ MAPS_DIR defaults to ../Maps and must contain:
 import csv
 import glob
 import json
+import math
 import os
 import sys
 
@@ -272,8 +273,27 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
             return geom
         return kept[0] if len(kept) == 1 else MultiPolygon(kept)
 
-    def label_point(geom, precinct_geoms):
-        """Where to put the district's big label.
+    # A district gets a second (or third) number when part of it sits far
+    # from the first one. Senate 26 runs the whole southern edge of the
+    # county, so a single label near Hampden left Bear Valley and Marston
+    # looking unlabelled; school board 4, RTD B and council 11 have the same
+    # problem with the Green Valley Ranch arm. Anything under the threshold
+    # keeps exactly one label.
+    LABEL_SPREAD_KM = 9.0
+    MAX_LABELS = 2
+    MIN_LABEL_PRECINCTS = 3
+    KM_LON = 85.6                     # at Denver's latitude
+    KM_LAT = 111.0
+
+    def _km(a, b):
+        return math.hypot((a.x - b.x) * KM_LON, (a.y - b.y) * KM_LAT)
+
+    def _mean(pts):
+        return Point(sum(p.x for p in pts) / len(pts),
+                     sum(p.y for p in pts) / len(pts))
+
+    def label_points(geom, precinct_geoms):
+        """Where to put the district's big number(s).
 
         The pole of inaccessibility alone puts council 11, school board 4 and
         RTD B out in the middle of DIA, because the airport is a huge empty
@@ -286,16 +306,46 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
         main = max(parts, key=lambda g: g.area)
 
         pts = [g.centroid for g in precinct_geoms]
+        first = None
         if pts:
-            mean = Point(sum(p.x for p in pts) / len(pts),
-                         sum(p.y for p in pts) / len(pts))
+            mean = _mean(pts)
             if geom.contains(mean):
-                return mean
-        try:
-            from shapely.ops import polylabel
-            return polylabel(main, tolerance=0.0005)
-        except Exception:
-            return main.representative_point()
+                first = mean
+        if first is None:
+            try:
+                from shapely.ops import polylabel
+                first = polylabel(main, tolerance=0.0005)
+            except Exception:
+                first = main.representative_point()
+
+        # representative_point is inside its precinct, so any label placed on
+        # one is guaranteed to land inside the district.
+        cands = [g.representative_point() for g in precinct_geoms]
+        labels = [first]
+        while len(labels) < MAX_LABELS and cands:
+            far = max(cands, key=lambda c: min(_km(c, l) for l in labels))
+            if min(_km(far, l) for l in labels) < LABEL_SPREAD_KM:
+                break
+            # Centre the new label on the precincts it speaks for rather than
+            # leaving it on the outermost one.
+            own = [c for c in cands
+                   if _km(c, far) < min(_km(c, l) for l in labels)]
+            # One outlying precinct is usually the airport or a rail yard:
+            # a number floating out there reads as noise, not a district.
+            if len(own) < MIN_LABEL_PRECINCTS:
+                break
+            centre = _mean(own)
+            if not geom.contains(centre):
+                # concave arm: the mean can fall outside it, so snap to the
+                # precinct nearest the mean rather than to the far corner
+                centre = min(own, key=lambda c: _km(c, centre))
+            # Recentring pulls the label back toward the rest of the
+            # district; if it lands close to a label already there, one
+            # number was enough.
+            if min(_km(centre, l) for l in labels) < LABEL_SPREAD_KM:
+                break
+            labels.append(centre)
+        return labels
 
     by_layer = {}
     for (layer, val), geoms in sorted(groups.items()):
@@ -320,14 +370,14 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
             "geometry": mapping(lines),
         })
         for val, poly, precinct_geoms in entries:
-            pt = label_point(poly, precinct_geoms)
-            out.append({
-                "type": "Feature",
-                "properties": {"kind": "label", "layer": layer,
-                               "district": val,
-                               "precincts": len(precinct_geoms)},
-                "geometry": mapping(Point(pt.x, pt.y)),
-            })
+            for pt in label_points(poly, precinct_geoms):
+                out.append({
+                    "type": "Feature",
+                    "properties": {"kind": "label", "layer": layer,
+                                   "district": val,
+                                   "precincts": len(precinct_geoms)},
+                    "geometry": mapping(Point(pt.x, pt.y)),
+                })
 
     # A world rectangle with the county punched out of it. Filled on the map,
     # this greys everything outside Denver so the county reads as the subject.
@@ -379,7 +429,7 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
                 "geometry": mapping(lines),
             })
             for (name, _orig), poly in zip(hoods, polys):
-                pt = label_point(poly, [])
+                pt = label_points(poly, [])[0]
                 out.append({
                     "type": "Feature",
                     "properties": {"kind": "label", "layer": "nbhd",

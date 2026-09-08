@@ -124,6 +124,7 @@
   .d-rows{display:flex;flex-wrap:wrap;gap:6px 20px;font-size:12.5px;flex:1 1 auto;min-width:0}
   .d-rows .r{display:flex;gap:6px;align-items:baseline;white-space:nowrap}
   .d-rows .r b{font-weight:600;font-variant-numeric:tabular-nums}
+  .d-rows .r .was{color:var(--muted);font-size:11.5px}
   .d-rows .r span{color:var(--muted)}
   .d-code{font-size:11px;color:#98a2ae;font-variant-numeric:tabular-nums;flex:none}
   /* keep Leaflet's scale bar and attribution clear of the detail bar */
@@ -565,7 +566,11 @@
     }
 
     var rows = [
-      ["School Board", p.school_board],
+      // The DPS map changed in 2024, so a precinct that moved carries where it
+      // used to be: that is the difference between the board this precinct
+      // votes for now and the one it voted for in 2023.
+      ["School Board", p.school_board,
+       p.school_board_2023 ? "was " + p.school_board_2023 : ""],
       ["City Council", p.council],
       ["RTD", p.rtd],
       ["State House", p.house],
@@ -574,7 +579,8 @@
     ].filter(function (r) { return r[1]; });
 
     document.getElementById("dRows").innerHTML = rows.map(function (r) {
-      return '<span class="r"><span>' + r[0] + "</span><b>" + esc(r[1]) + "</b></span>";
+      return '<span class="r"><span>' + r[0] + "</span><b>" + esc(r[1]) + "</b>" +
+             (r[2] ? '<span class="was">' + esc(r[2]) + "</span>" : "") + "</span>";
     }).join("");
 
     var el = document.getElementById("dElect");

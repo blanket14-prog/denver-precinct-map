@@ -17,6 +17,34 @@ by largest-area overlap, because the precinct shapefile's own `DPS_DIST` column
 is empty on all 301 records. The two at-large directors (`board_dist` 0) are
 citywide and excluded from the join.
 
+That shapefile is a cycle out of date: the DPS board adopted a new map in April
+2024, and the export matches the 2023 District 1 and 5 ballots exactly, 134
+precincts of 134. The converter corrects it from the election results, which
+pin the new map down without a new shapefile:
+
+- a precinct on the 2025 District 2, 3 or 4 ballot is in that district;
+- a precinct on the 2023 District 1 or 5 ballot that no 2025 contest claimed is
+  provisionally still in that district;
+- the seven left over are precincts that left District 3 or 4, and contiguity
+  places each one;
+- anything left with no neighbour in its own district was placed wrong, and
+  since it never appeared on a 2, 3 or 4 ballot, the other of 1 and 5 is the
+  only answer. Precinct 212 in Speer resolves this way: all four of its old
+  District 5 neighbours moved to District 2.
+
+Contiguity here means sharing any boundary at all, including a single corner,
+which is what the real maps use (precinct 801 in Cole reaches the rest of its
+2023 district only through a corner, as does the Indian Creek trio 915-917).
+Every district in the result is a single connected piece, and registered voters
+per district spread 26% rather than the 47% of the 2023 map, which is the
+direction a redistricting should move.
+
+Twenty-one precincts moved, each carrying a `school_board_2023` property
+recording where it was. What the method cannot see is a trade between Districts
+1 and 5 that leaves both sides connected, since neither seat was on the 2025
+ballot. Dropping a current director-district export into `Maps/DPS Board/`
+makes the whole correction a no-op.
+
 **Registered voters** — Colorado Secretary of State monthly voter registration
 statistics workbook, "Voter Counts by Precinct" sheet, matched on the 10-digit
 precinct code (301 of 301 matched). Download the current month from

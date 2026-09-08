@@ -458,6 +458,134 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
              os.path.getsize(out_path) // 1024))
 
 
+def apply_election_districts(feats, exact_geoms, elections_path):
+    """Correct school_board to the map the 2025 election actually ran on.
+
+    The DPS board adopted a new district map in April 2024, so the Denver Open
+    Data director-district shapefile -- which matches the 2023 District 1 and
+    District 5 ballots exactly, 134 precincts of 134 -- is a cycle out of date.
+    The election results pin the new map down without it:
+
+      * a precinct on the 2025 District 2, 3 or 4 ballot is in that district,
+        and nothing here changes that;
+      * a precinct on the 2023 District 1 or 5 ballot that no 2025 contest
+        claimed is provisionally still in that district;
+      * whatever is left is a precinct that left District 3 or 4 for 1 or 5.
+
+    Districts 1 and 5 are the blind spot, since neither seat was on the 2025
+    ballot, and contiguity is what closes it. Every district in the 2023 map is
+    a single connected piece, so a precinct with no neighbour in its own
+    district has been placed wrong, and since it cannot be in 2, 3 or 4 without
+    having appeared on that ballot, the other of 1 and 5 is the only answer
+    left. That is how precinct 212 in Speer resolves: all four of its old
+    District 5 neighbours moved to District 2, stranding it, and its remaining
+    neighbours are 1, 2 and 3.
+
+    Contiguity here means sharing any boundary at all, including a single
+    corner, which is what the real maps use: precinct 801 in Cole reaches the
+    rest of its 2023 district only through a corner, as does the Indian Creek
+    trio 915-917.
+
+    What survives is a trade between Districts 1 and 5 that leaves both sides
+    connected. Replacing the shapefile with a current export makes all of this
+    a no-op.
+    """
+    try:
+        with open(elections_path) as fh:
+            doc = json.load(fh)
+    except OSError:
+        print("  ! no elections.json; school board districts stay on the "
+              "shapefile's map")
+        return
+
+    contests = {c["key"]: c for c in doc.get("contests", [])}
+    need = ("d2_2025", "d3_2025", "d4_2025", "d1_2023", "d5_2023")
+    if not all(k in contests for k in need):
+        print("  ! elections.json is missing a district contest; school board "
+              "districts stay on the shapefile's map")
+        return
+
+    fixed = {}
+    for key, dist in (("d2_2025", "2"), ("d3_2025", "3"), ("d4_2025", "4")):
+        for num in contests[key]["precincts"]:
+            fixed[num] = dist
+
+    new = dict(fixed)
+    for key, dist in (("d1_2023", "1"), ("d5_2023", "5")):
+        for num in contests[key]["precincts"]:
+            new.setdefault(num, dist)
+
+    nums = [f["properties"]["precinct"] for f in feats]
+    adj = {n: set() for n in nums}
+    for i, a in enumerate(nums):
+        for j in range(i + 1, len(nums)):
+            b = nums[j]
+            if exact_geoms[i].intersects(exact_geoms[j]):
+                adj[a].add(b)
+                adj[b].add(a)
+
+    # Precincts that left District 3 or 4: place each by the district its
+    # cluster can actually reach.
+    unplaced = [n for n in nums if n not in new]
+    for start in unplaced:
+        seen, stack, touch = {start}, [start], set()
+        while stack:
+            for nb in adj[stack.pop()]:
+                if nb in new:
+                    if new[nb] in ("1", "5"):
+                        touch.add(new[nb])
+                elif nb not in seen:
+                    seen.add(nb)
+                    stack.append(nb)
+        if len(touch) != 1:
+            sys.exit("FATAL: precinct %s left its 2023 district and touches %s,"
+                     " so contiguity cannot place it. Get a current DPS "
+                     "director-district export."
+                     % (start, "/".join(sorted(touch)) or "no district"))
+        new[start] = touch.pop()
+
+    # Repair anything the 2023 assignment stranded. Only 1 and 5 can move: a
+    # precinct in 2, 3 or 4 was seen on that ballot.
+    repaired = []
+    for _pass in range(len(nums)):
+        stranded = [n for n in nums
+                    if new[n] in ("1", "5")
+                    and not any(new[m] == new[n] for m in adj[n])]
+        if not stranded:
+            break
+        for n in stranded:
+            other = "5" if new[n] == "1" else "1"
+            if not any(new[m] == other for m in adj[n]):
+                sys.exit("FATAL: precinct %s has no neighbour in District 1 or"
+                         " 5, so contiguity cannot place it. Get a current DPS"
+                         " director-district export." % n)
+            repaired.append((n, new[n], other))
+            new[n] = other
+    else:
+        sys.exit("FATAL: school board district repair did not settle")
+
+    moved = []
+    for f in feats:
+        props = f["properties"]
+        was = props.get("school_board", "")
+        now = new[props["precinct"]]
+        if was and was != now:
+            props["school_board_2023"] = was
+            moved.append((props["precinct"], was, now))
+        props["school_board"] = now
+
+    print("  school board districts set from election results: %d precincts "
+          "moved since the 2023 map" % len(moved))
+    if unplaced:
+        print("      %d placed by contiguity after leaving District 3 or 4: %s"
+              % (len(unplaced), ", ".join(sorted(unplaced, key=int))))
+    for num, was, _now in repaired:
+        print("      precinct %s was stranded in District %s and can only be "
+              "in District %s" % (num, was, new[num]))
+    for num, was, now in sorted(moved, key=lambda t: int(t[0])):
+        print("      precinct %-5s D%s -> D%s" % (num, was, now))
+
+
 def main():
     src = os.path.join(MAPS, "Precincts", "ELEC_ELECTIONPRECINCTS_A")
     if not os.path.exists(src + ".shp"):
@@ -540,6 +668,12 @@ def main():
         if isinstance(o, dict):
             return {k: rnd(v) for k, v in o.items()}
         return o
+
+    # Do this before anything downstream reads school_board: the district
+    # overlay and the zoom-to-a-district menu are both dissolved from it.
+    apply_election_districts(
+        feats, exact_geoms,
+        os.path.join(os.path.dirname(OUT) or ".", "elections.json"))
 
     os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
     fc = {"type": "FeatureCollection", "features": feats}

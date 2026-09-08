@@ -210,6 +210,9 @@
   .legend .lg-name b{font-weight:600}
   .legend .lg-n{color:var(--muted);font-variant-numeric:tabular-nums}
   .legend .lg-scale{margin:0 0 7px;font-size:10.5px;color:var(--muted);line-height:1.4}
+  .legend .lg-bar{height:11px;border-radius:3px;border:1px solid rgba(0,0,0,.18)}
+  .legend .lg-ends{display:flex;justify-content:space-between;margin-top:3px;
+                   font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
   .d-elect{display:flex;align-items:baseline;gap:7px;flex:none;font-size:12.5px;
            white-space:nowrap;padding-right:14px;border-right:1px solid var(--line)}
   .d-elect .k{font-size:11px;color:var(--muted)}
@@ -268,6 +271,12 @@
       <div class="legend" id="electLegend" hidden></div>
     </div>
 
+    <div class="sec fold closed" id="returnSec">
+      <h2><button type="button" aria-expanded="false">Ballot Returns<span class="fc">&#9662;</span></button></h2>
+      <div class="rows" id="returnRows"></div>
+      <div class="legend" id="returnLegend" hidden></div>
+    </div>
+
     <div class="sec fold closed">
       <h2><button type="button" aria-expanded="false">Basemap<span class="fc">&#9662;</span></button></h2>
       <div class="rows" id="baseRows"></div>
@@ -307,6 +316,7 @@
   </div>
   <div class="d-stat" id="dStat"></div>
   <div class="d-elect" id="dElect" hidden></div>
+  <div class="d-elect" id="dReturn" hidden></div>
   <div class="d-rows" id="dRows"></div>
   <div class="d-code" id="dCode"></div>
 </div>
@@ -501,6 +511,36 @@
   var elections = null;      // { bands: [...], contests: [...] }
   var contest = null;        // the contest currently shaded, or null
 
+  // ---- ballot returns ----------------------------------------------------
+  // Returns are a real rate rather than a 25% band, so this is a continuous
+  // ramp. The stops are Denver's own, sampled straight off the legend of the
+  // election dashboard these exports come from: Tableau's Blue-Teal, pale mint
+  // at the low end to deep blue at the high.
+  var RETURN_RAMP = ["#bce4d8", "#a4d7d3", "#8dcace", "#76bdc8", "#5fb1c1",
+                     "#46a3b9", "#3993b2", "#3585a7", "#33769b", "#316792",
+                     "#2d5a85"];
+  var returns = null;        // { elections: [...] }
+  var returnYear = null;     // the election currently shaded, or null
+
+  function rampColor(t) {
+    t = t < 0 ? 0 : (t > 1 ? 1 : t);
+    var f = t * (RETURN_RAMP.length - 1);
+    var i = Math.min(RETURN_RAMP.length - 2, Math.floor(f));
+    var k = f - i, a = RETURN_RAMP[i], b = RETURN_RAMP[i + 1], out = "#";
+    for (var ch = 1; ch < 7; ch += 2) {
+      var av = parseInt(a.substr(ch, 2), 16), bv = parseInt(b.substr(ch, 2), 16);
+      out += ("0" + Math.round(av + (bv - av) * k).toString(16)).slice(-2);
+    }
+    return out;
+  }
+  // Tableau stretches the ramp across the precincts actually present, so the
+  // darkest precinct is the highest return rate, not an absolute 100%.
+  function returnRate(cell) { return 100 * cell[0] / cell[1]; }
+  function returnFill(cell) {
+    var lo = returnYear.lo, hi = returnYear.hi;
+    return rampColor(hi > lo ? (returnRate(cell) - lo) / (hi - lo) : .5);
+  }
+
   function electFill(cell) {
     if (!cell || cell[0] < 0) return TIED_COLOR;
     return RAMPS[cell[0] % RAMPS.length][cell[1]];
@@ -513,6 +553,13 @@
   }
 
   function styleFor(props) {
+    if (returnYear) {
+      var cell = returnYear.precincts[props.precinct];
+      return cell
+        ? { color: "#6b7280", weight: .8, opacity: .8,
+            fillColor: returnFill(cell), fillOpacity: .85 }
+        : DIMMED;
+    }
     if (contest) {
       var cell = contest.precincts[props.precinct];
       // A district race covers only its own precincts; the rest of the county
@@ -523,7 +570,7 @@
     return props[filterKey] === filterVal ? IN_DIST : DIMMED;
   }
   function hoverStyle(props) {
-    if (!contest) return HOVER;
+    if (!contest && !returnYear) return HOVER;
     var s = styleFor(props);
     return { color: "#1f2937", weight: 2.2, opacity: 1,
              fillColor: s.fillColor, fillOpacity: s.fillOpacity };
@@ -601,6 +648,20 @@
     } else {
       el.hidden = true;
       el.innerHTML = "";
+    }
+
+    var rt = document.getElementById("dReturn");
+    var rcell = returnYear ? returnYear.precincts[p.precinct] : null;
+    if (returnYear && rcell) {
+      rt.innerHTML =
+        '<span class="k">' + esc(returnYear.label) + "</span>" +
+        '<span class="sw" style="background:' + returnFill(rcell) + '"></span>' +
+        "<b>" + returnRate(rcell).toFixed(1) + "%</b> " +
+        commas(rcell[0]) + " of " + commas(rcell[1]);
+      rt.hidden = false;
+    } else {
+      rt.hidden = true;
+      rt.innerHTML = "";
     }
 
     document.getElementById("dCode").textContent =
@@ -752,6 +813,7 @@
     document.getElementById("q").value = "";
     resetDistrictMenus();
     setContest(null);
+    setReturnYear(null);
     clearSelection();
     zoomDenver();
     say("");
@@ -1050,6 +1112,8 @@
 
   function setContest(c) {
     contest = c || null;
+    // one shading at a time: two choropleths cannot share a precinct
+    if (contest && returnYear) setReturnYear(null);
     buildLegend();
     restyleAll();
     if (picked) {
@@ -1140,6 +1204,80 @@
       electRows.innerHTML =
         '<span class="lg-n" style="font-size:11.5px">Election results unavailable</span>';
       console.error("[precinct-map] elections unavailable: " + err.message);
+    });
+
+  // ---- ballot returns UI -------------------------------------------------
+  var returnRows = document.getElementById("returnRows");
+  var returnLegend = document.getElementById("returnLegend");
+  var byReturn = {};
+
+  function setReturnYear(e) {
+    returnYear = e || null;
+    if (returnYear && contest) setContest(null);
+    buildReturnLegend();
+    restyleAll();
+    if (picked) showDetail((picked.feature && picked.feature.properties) || {});
+    var input = returnRows.querySelector(
+      'input[value="' + (returnYear ? returnYear.key : "") + '"]');
+    if (input) input.checked = true;
+  }
+
+  function buildReturnLegend() {
+    if (!returnYear) {
+      returnLegend.hidden = true;
+      returnLegend.innerHTML = "";
+      return;
+    }
+    var stops = RETURN_RAMP.map(function (c, i) {
+      return c + " " + Math.round(100 * i / (RETURN_RAMP.length - 1)) + "%";
+    }).join(",");
+    var rate = 100 * returnYear.cast / returnYear.issued;
+    returnLegend.innerHTML =
+      '<div class="lg-title">' + commas(returnYear.cast) + " of " +
+      commas(returnYear.issued) + " ballots returned citywide, " +
+      rate.toFixed(1) + "%.</div>" +
+      '<div class="lg-bar" style="background:linear-gradient(to right,' +
+      stops + ')"></div>' +
+      '<div class="lg-ends"><span>' + returnYear.lo.toFixed(2) + "%</span>" +
+      "<span>" + returnYear.hi.toFixed(2) + "%</span></div>";
+    returnLegend.hidden = false;
+  }
+
+  function returnRow(label, value, checked) {
+    var row = document.createElement("label");
+    var input = document.createElement("input");
+    input.type = "radio";
+    input.name = "returns";
+    input.value = value;
+    input.checked = !!checked;
+    input.addEventListener("change", function () {
+      if (input.checked) setReturnYear(byReturn[input.value] || null);
+    });
+    row.appendChild(input);
+    var sw = document.createElement("span");
+    sw.className = "nosw";
+    row.appendChild(sw);
+    row.appendChild(document.createTextNode(label));
+    returnRows.appendChild(row);
+  }
+
+  var returnsReady = fetch("{{ returns_url }}")
+    .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    })
+    .then(function (doc) {
+      returns = doc;
+      returnRow("None", "", true);
+      doc.elections.forEach(function (e) {
+        byReturn[e.key] = e;
+        returnRow(e.label, e.key, false);
+      });
+    })
+    .catch(function (err) {
+      returnRows.innerHTML =
+        '<span class="lg-n" style="font-size:11.5px">Ballot returns unavailable</span>';
+      console.error("[precinct-map] returns unavailable: " + err.message);
     });
 
   // ---- big numbers on the map -------------------------------------------
@@ -1293,6 +1431,7 @@
       out.push("f" + FILTER_CODE[filterKey] + filterVal);
     }
     if (contest) out.push("e" + contest.key);
+    if (returnYear) out.push("b" + returnYear.key);
     if (picked && picked.feature && picked.feature.properties) {
       out.push("p" + picked.feature.properties.precinct);
     }
@@ -1320,10 +1459,13 @@
       });
     }
 
-    var view = null, wantFilter = null, wantPrecinct = null, wantContest = null;
+    var view = null, wantFilter = null, wantPrecinct = null, wantContest = null,
+        wantReturn = null;
     segs.slice(1).forEach(function (seg) {
       if (seg.charAt(0) === "e") {
         wantContest = seg.slice(1);
+      } else if (seg.charAt(0) === "b") {
+        wantReturn = seg.slice(1);
       } else if (seg.charAt(0) === "f") {
         var key = CODE_FILTER[seg.charAt(1)];
         if (key) wantFilter = { key: key, val: seg.slice(2) };
@@ -1360,13 +1502,22 @@
         if (ebtn) ebtn.setAttribute("aria-expanded", "true");
       }
     }
+    if (wantReturn && byReturn[wantReturn]) {
+      setReturnYear(byReturn[wantReturn]);
+      var rsec = document.getElementById("returnSec");
+      if (rsec) {
+        rsec.classList.remove("closed");
+        var rbtn = rsec.querySelector("h2 button");
+        if (rbtn) rbtn.setAttribute("aria-expanded", "true");
+      }
+    }
     if (wantPrecinct && byNumber[wantPrecinct]) {
       selectLayer(byNumber[wantPrecinct]);
     }
     if (view && !wantPrecinct) {
       map.setView([view.lat, view.lng], view.zoom, { animate: false });
     }
-    if (wantFilter || wantPrecinct || wantContest) setCollapsed(true);
+    if (wantFilter || wantPrecinct || wantContest || wantReturn) setCollapsed(true);
   }
 
   function describeState() {
@@ -1383,6 +1534,7 @@
              " " + filterVal;
     }
     if (contest) out += " \u00b7 " + contest.title + " " + contest.year;
+    if (returnYear) out += " \u00b7 " + returnYear.label + " ballot returns";
     if (picked && picked.feature && picked.feature.properties) {
       out += " \u00b7 precinct " + picked.feature.properties.precinct;
     }

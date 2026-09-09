@@ -28,6 +28,7 @@ from shapely.geometry import shape, mapping, Point
 from shapely.ops import transform as shp_transform
 
 SRC = sys.argv[1] if len(sys.argv) > 1 else "../Demographics"
+VINTAGE = 2024                  # the ACS 5-year release these exports came from
 OUT_DIR = "data"
 DENVER_COUNTY = "031"
 SIMPLIFY_DEG = 0.00002          # ~2 m; tracts are large, lines stay clean
@@ -70,6 +71,7 @@ def load_tracts(src):
     if not hits:
         raise SystemExit("no tl_<year>_08_tract.shp under %s" % src)
     path = hits[-1]
+    globals()["tiger_year"] = int(os.path.basename(path).split("_")[1])
     r = shapefile.Reader(path)
     src_crs = CRS.from_wkt(open(path[:-4] + ".prj").read())
     tr = Transformer.from_crs(src_crs, CRS.from_epsg(4326), always_xy=True)
@@ -226,6 +228,10 @@ def main():
 
         out = dict(m)
         out.pop("denom", None)
+        # Subject tables (S) and detailed tables (B, C) live under different
+        # product codes on data.census.gov, which the legend links to.
+        out["product"] = ("ACSST5Y%d" if m["table"].startswith("S")
+                          else "ACSDT5Y%d") % VINTAGE
         out["wideRule"] = "rel" if m["fmt"] in ("usd", "count") else "pp"
         out["values"] = values
         measures.append(out)
@@ -278,8 +284,17 @@ def main():
         json.dump(rnd(geo), fh, separators=(",", ":"))
     dpath = os.path.join(OUT_DIR, "demographics.json")
     with open(dpath, "w") as fh:
-        json.dump({"measures": measures, "precinctTract": precinct_tract},
-                  fh, separators=(",", ":"))
+        json.dump({
+            "measures": measures,
+            "precinctTract": precinct_tract,
+            "source": {
+                "survey": "American Community Survey %d-%d 5-year estimates"
+                          % (VINTAGE - 4, VINTAGE),
+                "agency": "U.S. Census Bureau",
+                "geography": "TIGER/Line %d census tracts" % tiger_year,
+                "url": "https://data.census.gov/table/",
+            },
+        }, fh, separators=(",", ":"))
 
     print("\nwrote %s  (%d tracts, %d KB)"
           % (gpath, len(geo["features"]), os.path.getsize(gpath) // 1024))

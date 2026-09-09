@@ -236,6 +236,9 @@
   .legend .lg-moe{display:flex;align-items:center;gap:6px;margin-top:7px;
                   font-size:10.5px;color:var(--muted);line-height:1.35}
   .legend .lg-moe i{flex:none;width:18px;height:0;border-top:2px dashed #6b7280}
+  .legend .lg-src{margin-top:8px;padding-top:7px;border-top:1px solid var(--line);
+                  font-size:10px;color:var(--muted);line-height:1.45}
+  .legend .lg-src a{color:var(--accent)}
   .d-elect{display:flex;align-items:baseline;gap:7px;flex:none;font-size:12.5px;
            white-space:nowrap;padding-right:14px;border-right:1px solid var(--line)}
   .d-elect .k{font-size:11px;color:var(--muted)}
@@ -549,6 +552,13 @@
     ["#dadaeb", "#bcbddc", "#807dba", "#54278f"]    // purple
   ];
   var TIED_COLOR = "#9aa1a8";
+
+  // Both election layers come from the same place: Denver's own dashboard.
+  var SOURCE_ELECTIONS =
+    '<div class="lg-src">Source: Denver Elections Division, precinct-level ' +
+    'reporting, <a href="https://public.tableau.com/app/profile/ssharp8813" ' +
+    'target="_blank" rel="noopener">public.tableau.com/app/profile/ssharp8813' +
+    "</a>.</div>";
 
   var elections = null;      // { bands: [...], contests: [...] }
   var contest = null;        // the contest currently shaded, or null
@@ -1300,6 +1310,7 @@
               '<span class="lg-name">Tied <span class="lg-n">' +
               contest.tied + "</span></span></div>";
     }
+    html += SOURCE_ELECTIONS;
     electLegend.innerHTML = html;
     electLegend.hidden = false;
   }
@@ -1410,7 +1421,8 @@
       '<div class="lg-ends"><span>' + returnYear.lo.toFixed(2) + "%</span>" +
       "<span>" + returnYear.hi.toFixed(2) + "%</span></div>" +
       '<div class="lg-cutline"><span class="t"></span>' +
-      '<span><span class="n"></span> <button type="button" hidden>Show all</button></span></div>';
+      '<span><span class="n"></span> <button type="button" hidden>Show all</button></span></div>' +
+      SOURCE_ELECTIONS;
 
     cutBar = returnLegend.querySelector(".lg-bar i");
     cutText = returnLegend.querySelector(".lg-cutline .t");
@@ -1552,8 +1564,25 @@
       (demo.blank ? '<div class="lg-moe"><i style="border-top-style:solid;' +
               'border-color:#b9c3cd"></i><span>' + demo.blank +
               " tracts are left unfilled: the Census published no estimate, " +
-              "having too few households to survey.</span></div>" : "");
+              "having too few households to survey.</span></div>" : "") +
+      demoSource();
     demoLegend.hidden = false;
+  }
+
+  // Every figure on this layer traces to one published table, so the legend
+  // names it and links to it rather than leaving the reader to take it on
+  // trust.
+  function demoSource() {
+    var src = (demographics && demographics.source) || {};
+    var href = (src.url || "https://data.census.gov/table/") +
+               demo.product + "." + demo.table;
+    return '<div class="lg-src">Source: ' +
+           esc(src.agency || "U.S. Census Bureau") + ", " +
+           esc(src.survey || "American Community Survey") + ", table " +
+           '<a href="' + esc(href) + '" target="_blank" rel="noopener">' +
+           esc(demo.table) + "</a>." +
+           (src.geography ? " Boundaries: " + esc(src.geography) + "." : "") +
+           "</div>";
   }
 
   function demoRow(label, value, checked) {

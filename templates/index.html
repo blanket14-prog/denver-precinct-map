@@ -1802,7 +1802,11 @@
       out.push("p" + picked.feature.properties.precinct);
     }
     var c = map.getCenter();
-    out.push("z" + map.getZoom() + "@" + c.lat.toFixed(4) + "," + c.lng.toFixed(4));
+    // Round it. Mid-flight the zoom is fractional, and both the share parser
+    // and the saved-view parser want an integer, so a link or a remembered
+    // view captured during a fly-to would be silently dropped on reopen.
+    out.push("z" + Math.round(map.getZoom()) +
+             "@" + c.lat.toFixed(4) + "," + c.lng.toFixed(4));
     return out.join("~");
   }
 

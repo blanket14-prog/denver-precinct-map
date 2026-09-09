@@ -379,40 +379,54 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
                     "geometry": mapping(Point(pt.x, pt.y)),
                 })
 
-    # A world rectangle with the county punched out of it. Filled on the map,
-    # this greys everything outside Denver so the county reads as the subject.
+    # A world rectangle with the county cut out of it. Filled on the map, this
+    # greys everything outside Denver so the county reads as the subject.
+    #
+    # Cut with a real difference rather than by hand-assembling the county's
+    # rings as holes. Denver's outline pinches to a point in the southwest, so
+    # a hand-built ring self-intersects there and the result is invalid
+    # geometry that only renders correctly because the canvas happens to use an
+    # even-odd fill. difference() is valid by construction, the same size, and
+    # it keeps the enclaves without a size floor: they are holes in the county,
+    # so cutting the county leaves them filled, which is what greying Glendale
+    # and its six smaller neighbours requires.
     county = clean(unary_union(
         [shapely.set_precision(g, GRID) for g in exact_geoms]))
+    world = Polygon([(-180.0, -85.0), (180.0, -85.0),
+                     (180.0, 85.0), (-180.0, 85.0)])
+    # Snap to the same grid the output is rounded to. Denver's outline pinches
+    # in the southwest, and rounding an unsnapped mask to six decimals closes
+    # that pinch into a self-intersection: valid before writing, invalid after.
+    # Snapping first lets GEOS resolve the topology at the precision that will
+    # actually be stored.
+    mask = shapely.set_precision(world.difference(county), 1e-6)
     county_parts = (county.geoms if isinstance(county, MultiPolygon)
                     else [county])
-
-    # Keep real enclaves as holes in the county so they get greyed with
-    # everything else outside Denver. Glendale is entirely surrounded by
-    # Denver but is not part of it. The floor here is deliberately coarser
-    # than SPECK: a hole worth greying is at least a city block.
-    ENCLAVE_MIN = 1e-6
-    world = [[-180.0, -85.0], [180.0, -85.0], [180.0, 85.0],
-             [-180.0, 85.0], [-180.0, -85.0]]
-    holes = []
-    enclaves = 0
-    for part in county_parts:
-        if part.area < ENCLAVE_MIN:
-            continue                      # detached speck, not real land
-        holes.append(list(part.exterior.coords))
-        for ring in part.interiors:
-            if Polygon(ring).area >= ENCLAVE_MIN:
-                holes.append(list(ring.coords))
-                enclaves += 1
-    print("  county mask: %d outer ring(s), %d enclave(s) greyed"
-          % (len(holes) - enclaves, enclaves))
+    enclaves = sum(len(p.interiors) for p in county_parts)
+    print("  county mask: %d county part(s), %d enclave(s) greyed, valid: %s"
+          % (len(county_parts), enclaves, mask.is_valid))
+    if not mask.is_valid:
+        sys.exit("FATAL: the county mask came out invalid")
     out.append({
         "type": "Feature",
         "properties": {"kind": "mask", "layer": "mask"},
-        "geometry": {
-            "type": "Polygon",
-            "coordinates": [world] + [[list(c) for c in h] for h in holes],
-        },
+        "geometry": mapping(mask),
     })
+
+    # Validate what actually gets written, not what was built. Rounding is the
+    # step that broke the mask, so the check belongs after it.
+    def audit(features, label):
+        bad = []
+        for f in features:
+            g = shape(rnd(f["geometry"]))
+            if not g.is_valid or g.is_empty:
+                bad.append("%s %s" % (f["properties"].get("kind", ""),
+                                      f["properties"].get("layer", "")))
+        if bad:
+            sys.exit("FATAL: %s has invalid geometry after rounding: %s"
+                     % (label, ", ".join(bad[:6])))
+        print("  %s: %d features, all valid at output precision"
+              % (label, len(features)))
 
     if maps_dir:
         hoods = load_neighborhoods(maps_dir)
@@ -446,6 +460,7 @@ def build_districts(feats, exact_geoms, out_path, maps_dir=None):
             return {k: rnd(v) for k, v in o.items()}
         return o
 
+    audit(out, os.path.basename(out_path))
     with open(out_path, "w") as fh:
         json.dump(rnd({"type": "FeatureCollection", "features": out}), fh,
                   separators=(",", ":"))
@@ -674,6 +689,12 @@ def main():
     apply_election_districts(
         feats, exact_geoms,
         os.path.join(os.path.dirname(OUT) or ".", "elections.json"))
+
+    bad = [f["properties"]["precinct"] for f in feats
+           if not shape(rnd(f["geometry"])).is_valid]
+    if bad:
+        sys.exit("FATAL: precincts invalid after rounding: %s" % bad[:8])
+    print("  precincts: %d features, all valid at output precision" % len(feats))
 
     os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
     fc = {"type": "FeatureCollection", "features": feats}

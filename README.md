@@ -154,6 +154,17 @@ New Web Service pointed at this repo:
 
 `render.yaml` is included as a Blueprint if you prefer that route.
 
+## Known artifacts
+
+Precinct polygons are simplified to ~1.5 m each, independently, which pulls
+shared edges very slightly apart and leaves about 31,000 m2 of overlap slivers
+across the whole county, roughly 0.008% of its area and 1 to 1.6 m wide. The
+source shapefile has exactly zero overlap; this is display simplification only,
+and every district overlay is dissolved from the exact geometry rather than
+from these. Shapely's `coverage_simplify` would remove the slivers entirely,
+but at the same file size it costs 40 m of positional error, and at the same
+accuracy it doubles the file. The slivers are the better trade.
+
 ## Notes
 
 Leaflet 1.9.4 is vendored in `static/leaflet/` rather than loaded from a CDN,

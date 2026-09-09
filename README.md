@@ -90,6 +90,28 @@ Output is `data/precincts.geojson` (301 features, ~306 KB), `data/districts.geoj
 (~287 KB), `data/elections.json` (~12 KB) and `data/returns.json` (~10 KB). `numbers-parser` is a build-time
 dependency only and stays out of `requirements.txt`.
 
+**Demographics** — American Community Survey 5-year estimates by census tract,
+from data.census.gov, plus the TIGER/Line tract shapefile for Colorado
+(`tl_<year>_08_tract.shp`). Put both in one directory and run:
+
+    python3 tools/build_demographics.py /path/to/Demographics
+
+Output is `data/tracts.geojson` (178 Denver tracts) and
+`data/demographics.json`.
+
+These are drawn on their own geography rather than apportioned onto precincts,
+and that is deliberate. The Census publishes nothing by voting precinct. Blocks
+nest inside Denver's precincts and could be summed exactly, but ACS estimates
+are not published at block level, so a precinct figure would be an
+apportionment presented as a measurement. Every value keeps the margin of error
+the Bureau published with it, the map shades between the 5th and 95th
+percentile, and any tract whose margin exceeds 30% of its estimate is drawn
+with a dashed edge. In the 2020-2024 median household income table that is 42
+of 174 tracts, one of them $121,379 give or take $82,893.
+
+The precinct detail bar names the tract a precinct's centre falls in. It is
+labelled as the tract, not as the precinct, because the two geographies cross.
+
 ## Run locally
 
     pip install -r requirements.txt

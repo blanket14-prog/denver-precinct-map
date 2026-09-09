@@ -32,10 +32,10 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "24"
+APP_VERSION = "25"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
-              "returns.json")
+              "returns.json", "tracts.geojson", "demographics.json")
 _geojson_ver = {}
 
 
@@ -85,6 +85,9 @@ def index():
             districts_url="/data/districts.geojson?v=" + geojson_version("districts.geojson"),
             elections_url="/data/elections.json?v=" + geojson_version("elections.json"),
             returns_url="/data/returns.json?v=" + geojson_version("returns.json"),
+            tracts_url="/data/tracts.geojson?v=" + geojson_version("tracts.geojson"),
+            demographics_url="/data/demographics.json?v="
+                             + geojson_version("demographics.json"),
             version=APP_VERSION,
         )
     )

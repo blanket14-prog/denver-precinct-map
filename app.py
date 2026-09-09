@@ -32,10 +32,64 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "29"
+APP_VERSION = "30"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json")
+
+CONFIG_FILE = "config.json"
+_config_cache = {}
+
+
+def load_config():
+    """What the public is allowed to see, from data/config.json.
+
+    Kept in the repo rather than a database: Render's free tier has no
+    persistent disk and spins down when idle, so a file written at runtime
+    would not survive, and the two gunicorn workers would not agree on it
+    anyway. /admin builds this document; committing it is what publishes it.
+
+    A missing or unreadable file means show everything, so a bad edit degrades
+    to the full map rather than a blank one.
+    """
+    path = os.path.join(DATA_DIR, CONFIG_FILE)
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        return {}
+    if _config_cache.get("mtime") != mtime:
+        try:
+            with open(path) as fh:
+                doc = json.load(fh)
+            if not isinstance(doc, dict):
+                raise ValueError("config is not an object")
+        except (OSError, ValueError) as exc:
+            app.logger.error("BAD CONFIG %s: %s -- showing everything", path, exc)
+            doc = {}
+        _config_cache.update(mtime=mtime, doc=doc)
+    return _config_cache.get("doc", {})
+
+
+def visible(group, key, default=True):
+    """Is one switch on? Unknown keys default to visible."""
+    section = load_config().get(group)
+    if not isinstance(section, dict):
+        return default
+    return bool(section.get(key, default))
+
+
+def section_on(name):
+    """A section is off if its own switch is off, or nothing inside it is on."""
+    if not visible("sections", name):
+        return False
+    inner = {"elections": "elections", "returns": "returns",
+             "demographics": "demographics", "districts": "filters",
+             "boundaries": "boundaries"}.get(name)
+    if inner:
+        group = load_config().get(inner)
+        if isinstance(group, dict) and group and not any(group.values()):
+            return False
+    return True
 _geojson_ver = {}
 
 
@@ -43,8 +97,14 @@ def geojson_version(name):
     """Short content hash, so the client URL changes whenever the data does.
 
     Without this, the long Cache-Control on the GeoJSON means anyone who
-    loaded the map before a data update keeps the stale copy for a day.
+    loaded the map before a data update keeps the stale copy for a day. The
+    config is folded in because it changes what the file contains: switch a
+    contest off and the payload changes without the file on disk changing.
     """
+    return _file_version(name) + _file_version(CONFIG_FILE)[:4]
+
+
+def _file_version(name):
     path = os.path.join(DATA_DIR, name)
     try:
         mtime = os.path.getmtime(path)
@@ -89,10 +149,100 @@ def index():
             demographics_url="/data/demographics.json?v="
                              + geojson_version("demographics.json"),
             version=APP_VERSION,
+            config=json.dumps(public_config(), separators=(",", ":")),
         )
     )
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+def public_config():
+    """The switches the page needs, with every gap filled in as visible.
+
+    Sent whole rather than as a set of flags so the template stays simple, and
+    so a section the config does not mention keeps working.
+    """
+    cfg = load_config()
+    out = {"sections": {}, "filters": {}, "boundaries": {}, "elections": {},
+           "returns": {}, "demographics": {}, "detail": {}}
+    for group in out:
+        given = cfg.get(group)
+        out[group] = dict(given) if isinstance(given, dict) else {}
+    for name in ("districts", "elections", "returns", "demographics",
+                 "basemap", "boundaries", "labels"):
+        out["sections"][name] = section_on(name)
+    return out
+
+
+@app.route("/admin")
+def admin():
+    """A switchboard for what the public sees.
+
+    It does not save anything. Render's free tier has no persistent disk, so
+    the config lives in the repo: this page builds the document and you commit
+    it. That also means /admin can be public without risk, since it cannot
+    change what the server serves and the server does not serve what the
+    committed config hides.
+    """
+    resp = app.make_response(render_template(
+        "admin.html",
+        version=APP_VERSION,
+        config=json.dumps(load_config(), indent=2),
+    ))
+    resp.headers["Cache-Control"] = "no-cache"
+    resp.headers["X-Robots-Tag"] = "noindex"
+    return resp
+
+
+def filter_payload(fname, doc):
+    """Strip a data file down to what the config makes public.
+
+    Hiding a row in the panel would still ship the whole file, so anyone could
+    read what was meant to be private straight out of /data. Filtering here is
+    what makes a switch mean something: what is off never leaves the server.
+    """
+    if fname == "elections.json":
+        if not section_on("elections"):
+            return {"bands": doc.get("bands", []), "contests": []}
+        doc["contests"] = [c for c in doc.get("contests", [])
+                           if visible("elections", c.get("key"))]
+    elif fname == "returns.json":
+        if not section_on("returns"):
+            return {"elections": []}
+        doc["elections"] = [e for e in doc.get("elections", [])
+                            if visible("returns", e.get("key"))]
+    elif fname == "demographics.json":
+        if not section_on("demographics"):
+            return {"measures": [], "precinctTract": {}, "source": {}}
+        doc["measures"] = [m for m in doc.get("measures", [])
+                           if visible("demographics", m.get("key"))]
+    elif fname == "districts.geojson":
+        keep = {"council", "school", "rtd", "senate", "house", "nbhd"}
+        on = {k for k in keep if visible("boundaries", k)}
+        feats = []
+        for f in doc.get("features", []):
+            layer = f.get("properties", {}).get("layer")
+            if layer == "mask":
+                if visible("boundaries", "mask"):
+                    feats.append(f)
+            elif layer in keep:
+                if layer in on and section_on("boundaries"):
+                    feats.append(f)
+            else:
+                feats.append(f)
+        doc["features"] = feats
+    elif fname == "precincts.geojson":
+        FIELDS = {"voters": ("active", "inactive", "registered"),
+                  "code": ("precinct_code",),
+                  "neighborhood": ("neighborhood",)}
+        gone = [prop for switch, props in FIELDS.items()
+                if not visible("detail", switch) for prop in props]
+        if gone:
+            for f in doc.get("features", []):
+                for p in gone:
+                    f.get("properties", {}).pop(p, None)
+            doc.pop("voter_source", None)
+    return doc
 
 
 @app.route("/data/<name>.<ext>")
@@ -104,8 +254,19 @@ def geojson(name, ext):
     if not os.path.exists(path):
         app.logger.error("MISSING DATA FILE: %s", path)
         return jsonify({"error": fname + " not found on server"}), 500
+
+    if fname == "tracts.geojson" and not section_on("demographics"):
+        return jsonify({"type": "FeatureCollection", "features": []})
+
     mime = "application/geo+json" if ext == "geojson" else "application/json"
-    resp = send_from_directory(DATA_DIR, fname, mimetype=mime)
+    if load_config():
+        with open(path) as fh:
+            doc = json.load(fh)
+        resp = app.response_class(
+            json.dumps(filter_payload(fname, doc), separators=(",", ":")),
+            mimetype=mime)
+    else:
+        resp = send_from_directory(DATA_DIR, fname, mimetype=mime)
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
 

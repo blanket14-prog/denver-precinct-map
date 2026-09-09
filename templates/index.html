@@ -196,6 +196,17 @@
   /* the number is already painted on the precinct, so drop the hover chip */
   .pnum-on .leaflet-tooltip{display:none!important}
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
+  .active-card{background:rgba(255,255,255,.9);border-radius:4px;padding:5px 8px 6px;
+               box-shadow:0 0 0 1px rgba(0,0,0,.07);max-width:230px;margin-bottom:5px}
+  .active-card .h{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+                  color:#98a2ae;margin-bottom:3px}
+  .active-card .r{display:flex;align-items:center;gap:6px;font-size:11.5px;
+                  color:#3d4753;line-height:1.5}
+  .active-card .r i{flex:none;width:11px;height:11px;border-radius:2px;
+                    box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+  .active-card .r i.line{height:0;border-radius:0;box-shadow:none;border-top-width:2.5px;
+                         border-top-style:solid}
+  @media (max-width:700px){.active-card{max-width:160px;font-size:11px}}
   .verbadge{background:rgba(255,255,255,.85);border-radius:3px;padding:1px 6px;
             font-size:10.5px;line-height:1.5;color:#7a828c;font-variant-numeric:tabular-nums;
             box-shadow:0 0 0 1px rgba(0,0,0,.06)}
@@ -359,6 +370,15 @@
 (function () {
   "use strict";
 
+  // What the public is allowed to see. The server already filters the data to
+  // match, so this only decides which controls exist; it is not the boundary
+  // that keeps anything private.
+  var CONFIG = {{ config|safe }};
+  function shown(group, key) {
+    var g = CONFIG && CONFIG[group];
+    return !g || g[key] === undefined ? true : !!g[key];
+  }
+
   var note = document.getElementById("note");
   var panel = document.querySelector(".panel");
   var toggle = document.getElementById("toggle");
@@ -402,6 +422,70 @@
 
   // A build number in the corner, so it is obvious whether the browser is
   // showing the current deploy or a cached copy of an older one.
+  // What you are actually looking at, in the corner, because the panel spends
+  // most of its life collapsed and a green map with purple lines does not say
+  // which green and which lines.
+  var activeCard = null;
+  var ActiveCard = L.Control.extend({
+    onAdd: function () {
+      activeCard = L.DomUtil.create("div", "active-card");
+      activeCard.hidden = true;
+      L.DomEvent.disableClickPropagation(activeCard);
+      return activeCard;
+    }
+  });
+  new ActiveCard({ position: "bottomright" }).addTo(map);
+
+  function swatch(color, isLine) {
+    return '<i class="' + (isLine ? "line" : "") + '" style="' +
+      (isLine ? "border-top-color:" : "background:") + color + '"></i>';
+  }
+
+  function syncActive() {
+    if (!activeCard || !DISTRICT_LAYERS) return;
+    var rows = [];
+
+    // boundaries first, the way they read on the map
+    DISTRICT_LAYERS.forEach(function (d) {
+      if (d.layer && map.hasLayer(d.layer)) {
+        rows.push(swatch(d.color, true) + "<span>" + esc(d.label) +
+                  (d.key === "nbhd" ? "" : " boundaries") + "</span>");
+      }
+    });
+
+    // then whichever shading is on
+    if (demo) {
+      rows.push(swatch(demoColor(.72)) + "<span>" + esc(demo.label) + "</span>");
+    } else if (returnYear) {
+      rows.push(swatch(RETURN_RAMP[RETURN_RAMP.length - 3]) + "<span>" +
+                esc(returnYear.label) + " returns" +
+                (returnMin > returnYear.lo
+                   ? ", " + returnMin.toFixed(1) + "% and up" : "") + "</span>");
+    } else if (contest) {
+      rows.push(swatch(RAMPS[0][2]) + "<span>" + esc(contest.label) +
+                " results</span>");
+    } else if (filterKey && filterVal) {
+      var label = filterKey;
+      DISTRICTS.forEach(function (d) { if (d.key === filterKey) label = d.label; });
+      rows.push(swatch(IN_DIST.fillColor) + "<span>" +
+                esc(label.replace(/^./, function (c) { return c.toUpperCase(); })) +
+                " " + esc(filterVal) + "</span>");
+    }
+
+    if (layers && map.hasLayer(layers)) {
+      rows.push(swatch(BASE.color, true) + "<span>Precinct lines</span>");
+    }
+
+    activeCard.innerHTML = rows.length
+      ? '<div class="h">Showing</div>' + rows.map(function (r) {
+          return '<div class="r">' + r + "</div>";
+        }).join("")
+      : "";
+    activeCard.hidden = !rows.length;
+  }
+
+  map.on("layeradd layerremove", syncActive);
+
   var VersionBadge = L.Control.extend({
     onAdd: function () {
       var el = L.DomUtil.create("div", "verbadge");
@@ -720,9 +804,14 @@
           ? '<span class="sub">' + commas(p.registered) + " registered, " +
             commas(p.inactive || 0) + " inactive</span>"
           : "");
-    } else {
+    } else if (shown("detail", "voters")) {
       stat.className = "d-stat none";
       stat.textContent = "Registered voter count not loaded";
+    } else {
+      // switched off for the public; say nothing rather than hint at a gap
+      stat.className = "d-stat";
+      stat.innerHTML = "";
+      stat.style.display = "none";
     }
 
     var rows = [
@@ -867,16 +956,29 @@
     }
   }).addTo(map);
 
-  addOverlay(layers, "Precincts", "#2f6fa8");
+  if (shown("boundaries", "precincts")) addOverlay(layers, "Precincts", "#2f6fa8");
 
   // ---- district zoom ---------------------------------------------------
   var DISTRICTS = [
-    { key: "council",      el: "dCouncil", label: "council district" },
-    { key: "school_board", el: "dSchool",  label: "school board district" },
-    { key: "rtd",          el: "dRtd",     label: "RTD district" },
-    { key: "senate",       el: "dSenate",  label: "state senate district" },
-    { key: "house",        el: "dHouse",   label: "state house district" }
-  ];
+    { key: "council",      el: "dCouncil", cfg: "council", label: "council district" },
+    { key: "school_board", el: "dSchool",  cfg: "school",  label: "school board district" },
+    { key: "rtd",          el: "dRtd",     cfg: "rtd",     label: "RTD district" },
+    { key: "senate",       el: "dSenate",  cfg: "senate",  label: "state senate district" },
+    { key: "house",        el: "dHouse",   cfg: "house",   label: "state house district" }
+  ].filter(function (d) {
+    return shown("sections", "districts") && shown("filters", d.cfg);
+  });
+
+  // Drop the label and select for any filter the config turns off, so the row
+  // does not sit there empty.
+  ["dCouncil", "dSchool", "dRtd", "dSenate", "dHouse"].forEach(function (id) {
+    if (DISTRICTS.some(function (d) { return d.el === id; })) return;
+    var sel = document.getElementById(id);
+    if (!sel) return;
+    var lab = document.querySelector('label[for="' + id + '"]');
+    if (lab) lab.remove();
+    sel.remove();
+  });
 
   function sortVals(a, b) {
     var na = parseFloat(a), nb = parseFloat(b);
@@ -887,6 +989,7 @@
   function buildDistrictMenus() {
     DISTRICTS.forEach(function (d) {
       var sel = document.getElementById(d.el);
+      if (!sel) return;              // this menu is switched off
       var vals = [];
       features.forEach(function (f) {
         var v = f.props[d.key];
@@ -904,7 +1007,11 @@
         DISTRICTS.forEach(function (o) {           // one district at a time
           if (o.el !== d.el) document.getElementById(o.el).value = "";
         });
-        if (!v) { filterKey = filterVal = null; restyleAll(); zoomDenver(); return; }
+        if (!v) {
+          filterKey = filterVal = null;
+          restyleAll(); syncActive(); zoomDenver();
+          return;
+        }
 
         filterKey = d.key; filterVal = v;
         var bounds = null, n = 0, active = 0;
@@ -917,6 +1024,7 @@
         if (!bounds) { say("No precincts in that district.", true); return; }
         clearSelection();
         restyleAll();
+        syncActive();
         map.flyToBounds(bounds, { padding: [40, 40], duration: .7 });
         say(d.label.replace(/^./, function (c) { return c.toUpperCase(); }) + " " + v +
             ": " + n + " precinct" + (n === 1 ? "" : "s") +
@@ -936,7 +1044,10 @@
   }
 
   function resetDistrictMenus() {
-    DISTRICTS.forEach(function (d) { document.getElementById(d.el).value = ""; });
+    DISTRICTS.forEach(function (d) {
+      var sel = document.getElementById(d.el);
+      if (sel) sel.value = "";
+    });
     if (filterKey) { filterKey = filterVal = null; restyleAll(); }
   }
 
@@ -1239,13 +1350,16 @@
         });
 
         d.layer = L.layerGroup(parts);
-        addOverlay(d.layer, d.label, d.color);
+        if (shown("boundaries", d.key)) addOverlay(d.layer, d.label, d.color);
       });
 
       // last in the list: a display treatment rather than a boundary
-      if (maskLayer) addOverlay(maskLayer, "Dim outside Denver", null);
+      if (maskLayer && shown("boundaries", "mask")) {
+        addOverlay(maskLayer, "Dim outside Denver", null);
+      }
 
       syncLabels();
+      syncActive();
     })
     .catch(function (err) {
       console.error("[precinct-map] district outlines unavailable: " + err.message);
@@ -1263,6 +1377,7 @@
     if (contest && demo) setDemo(null);
     buildLegend();
     restyleAll();
+    syncActive();
     if (picked) {
       // the selection keeps its own colour, but its readout has to follow
       showDetail((picked.feature && picked.feature.properties) || {});
@@ -1369,6 +1484,7 @@
     if (returnYear && demo) setDemo(null);
     buildReturnLegend();
     restyleAll();
+    syncActive();
     if (picked) showDetail((picked.feature && picked.feature.properties) || {});
     var input = returnRows.querySelector(
       'input[value="' + (returnYear ? returnYear.key : "") + '"]');
@@ -1440,6 +1556,7 @@
       requestAnimationFrame(function () {
         cutPending = false;
         restyleAll();
+        syncActive();
       });
     });
     cutReset.addEventListener("click", function () {
@@ -1502,6 +1619,7 @@
     buildDemoLegend();
     paintTracts();
     restyleAll();
+    syncActive();
     if (picked) showDetail((picked.feature && picked.feature.properties) || {});
     var input = demoRows.querySelector(
       'input[value="' + (demo ? demo.key : "") + '"]');
@@ -1603,7 +1721,7 @@
     demoRows.appendChild(row);
   }
 
-  Promise.all([
+  var demoReady = Promise.all([
     fetch("{{ demographics_url }}").then(function (r) {
       if (!r.ok) throw new Error("demographics HTTP " + r.status);
       return r.json();
@@ -1945,6 +2063,42 @@
   }
   function closeShare() { shareModal.hidden = true; }
 
+  // A section the config turns off, or one that has nothing left inside it,
+  // is removed rather than left as an empty heading.
+  (function applyConfig() {
+    var SECTIONS = [
+      ["districts", "distSec"], ["elections", "electSec"],
+      ["returns", "returnSec"], ["demographics", "demoSec"],
+      ["basemap", null], ["boundaries", null], ["labels", null]
+    ];
+    var byHeading = {};
+    Array.prototype.forEach.call(document.querySelectorAll(".sec.fold"),
+      function (sec) {
+        var btn = sec.querySelector("h2 button");
+        if (btn) byHeading[btn.textContent.replace(/[\u25be\s]+$/, "").trim()] = sec;
+      });
+    var HEADING = { basemap: "Basemap", boundaries: "Boundaries", labels: "Labels" };
+    SECTIONS.forEach(function (pair) {
+      var name = pair[0], id = pair[1];
+      if (shown("sections", name)) return;
+      var sec = id ? document.getElementById(id) : byHeading[HEADING[name]];
+      if (sec) sec.remove();
+    });
+  })();
+
+  function pruneEmptySections() {
+    ["distSec", "electSec", "returnSec", "demoSec"].forEach(function (id) {
+      var sec = document.getElementById(id);
+      if (!sec) return;
+      var rows = sec.querySelector(".rows");
+      var dist = sec.querySelector(".dist");
+      var empty = (rows && rows.querySelectorAll("label").length <= 1 &&
+                   !rows.querySelector("span")) ||
+                  (dist && !dist.querySelector("select"));
+      if (empty) sec.remove();
+    });
+  }
+
   // fold the layer sections away by default; they are reference, not controls
   Array.prototype.forEach.call(
     document.querySelectorAll(".sec.fold h2 button"),
@@ -2003,6 +2157,7 @@
       buildDistrictMenus();
       buildPrecinctLabels();
       syncLabels();
+      syncActive();
       map.fitBounds(layers.getBounds(), { padding: [20, 20] });
       say("Click any precinct to zoom in and see its details.");
     })
@@ -2014,6 +2169,18 @@
   // A /s/<code> URL restores that view; otherwise pick up where this browser
   // left off. Either way, start remembering once the map has settled.
   var shared = location.pathname.match(/^\/s\/(.+)$/);
+  // Prune only once every feed has landed. Each section fills from its own
+  // fetch, so pruning earlier would delete a section that was merely still
+  // loading.
+  (function () {
+    var settled = function (p) {
+      return Promise.resolve(p).then(function () {}, function () {});
+    };
+    Promise.all([precinctsReady, districtsReady, electionsReady, returnsReady,
+                 demoReady].map(settled))
+      .then(function () { pruneEmptySections(); syncActive(); });
+  })();
+
   Promise.all([precinctsReady, districtsReady]).then(function () {
     if (shared) {
       try {

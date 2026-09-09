@@ -155,6 +155,30 @@ unpopulated tract.
 The precinct detail bar names the tract a precinct's centre falls in. It is
 labelled as the tract, not as the precinct, because the two geographies cross.
 
+## Controlling what is public
+
+`data/config.json` decides which panel sections, contests, return years,
+demographic measures, boundary layers and precinct detail fields the public
+sees. Everything true is the full map.
+
+The switches are not cosmetic. The server filters each payload to match, so a
+contest that is switched off never leaves the server and cannot be read out of
+`/data/elections.json`. Hiding a row in the panel alone would have shipped the
+data anyway.
+
+`/admin` is a switchboard for building that file. It saves nothing: set the
+switches, copy the config, commit it, deploy. It can be public without risk,
+since it cannot change what the server serves and the server does not serve
+what the committed config hides.
+
+The config lives in the repo because Render's free tier has no persistent disk
+and spins down when idle, so a file written at runtime would not survive, and
+the two gunicorn workers would not agree on it. A missing or malformed config
+means show everything, so a bad edit degrades to the full map rather than a
+blank one. The config hash is folded into the data URLs, so switching something
+off busts the browser cache instead of leaving the old payload in place for a
+day.
+
 ## Run locally
 
     pip install -r requirements.txt

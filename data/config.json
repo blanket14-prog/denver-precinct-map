@@ -1,0 +1,56 @@
+{
+  "_note": "Which parts of the map are public. Everything true means the full map. The server filters the data it serves to match, so anything switched off is not downloadable, not merely hidden. Edit here and redeploy, or build it on /admin and paste the result.",
+  "sections": {
+    "districts": true,
+    "elections": true,
+    "returns": true,
+    "demographics": true,
+    "basemap": true,
+    "boundaries": true,
+    "labels": true
+  },
+  "filters": {
+    "council": true,
+    "school": true,
+    "rtd": true,
+    "senate": true,
+    "house": true
+  },
+  "boundaries": {
+    "precincts": true,
+    "council": true,
+    "school": true,
+    "rtd": true,
+    "senate": true,
+    "house": true,
+    "nbhd": true,
+    "mask": true
+  },
+  "elections": {
+    "d1_2023": true,
+    "d2_2025": true,
+    "d3_2025": true,
+    "d4_2025": true,
+    "d5_2023": true,
+    "al_2023": true,
+    "al_2025": true
+  },
+  "returns": {
+    "r2025": true,
+    "r2023": true
+  },
+  "demographics": {
+    "income": true,
+    "poverty": true,
+    "kids": true,
+    "school": true,
+    "renters": true,
+    "language": true,
+    "pop": true
+  },
+  "detail": {
+    "voters": true,
+    "code": true,
+    "neighborhood": true
+  }
+}

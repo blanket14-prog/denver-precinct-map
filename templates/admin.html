@@ -1,0 +1,234 @@
+<title>Denver Precinct Map · Admin</title>
+<style>
+  :root{--ink:#1c2530;--muted:#6b7684;--line:#e3e7ec;--accent:#23557f;
+        --bg:#f6f7f9;--card:#fff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 60px}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 20px;max-width:64ch}
+  .sub a{color:var(--accent)}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+  .card h2{font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+           color:var(--muted);margin:0 0 10px;display:flex;justify-content:space-between;
+           align-items:center;gap:8px}
+  .card h2 button{border:0;background:none;padding:0;font:inherit;font-size:10px;
+                  letter-spacing:.04em;color:var(--accent);text-decoration:underline;
+                  cursor:pointer;text-transform:none}
+  label{display:flex;align-items:center;gap:9px;padding:4px 0;cursor:pointer}
+  label input{margin:0;width:15px;height:15px;accent-color:var(--accent);flex:none}
+  label span{min-width:0}
+  label.off span{color:#a6aeb8}
+  .master{border-bottom:1px solid var(--line);margin-bottom:7px;padding-bottom:7px}
+  .master span{font-weight:640}
+  .bar{position:sticky;bottom:0;background:var(--card);border:1px solid var(--line);
+       border-radius:8px;padding:12px 16px;margin-top:16px;display:flex;
+       align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -2px 12px rgba(0,0,0,.05)}
+  .bar .grow{flex:1 1 auto;min-width:0;color:var(--muted);font-size:12.5px}
+  button.act{border:1px solid var(--line);background:#fff;border-radius:6px;
+             padding:7px 14px;font:inherit;font-size:13px;cursor:pointer}
+  button.act:hover{border-color:var(--accent);color:var(--accent)}
+  button.act.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.act.primary:hover{opacity:.9;color:#fff}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px 16px;
+      overflow:auto;font-size:12px;line-height:1.45;margin:16px 0 0;max-height:340px}
+  .note{font-size:12.5px;color:var(--muted);margin-top:14px;line-height:1.55}
+  .note code{background:#eceff3;padding:1px 5px;border-radius:3px;font-size:11.5px}
+  .ver{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+</style>
+
+<div class="wrap">
+  <h1>What the public sees</h1>
+  <p class="sub">
+    Switch anything off and it stops being served, not merely hidden: the map
+    never receives the data, so it cannot be read out of <code>/data</code>
+    either. Nothing here saves on its own. Build the set you want, copy the
+    config at the bottom into <code>data/config.json</code>, and deploy.
+    <a href="/">Open the map</a>.
+  </p>
+
+  <div class="cols" id="cards"></div>
+
+  <div class="bar">
+    <button type="button" class="act" id="allOn">Everything on</button>
+    <button type="button" class="act" id="reset">Back to current</button>
+    <span class="grow" id="summary"></span>
+    <span class="ver">v{{ version }}</span>
+    <button type="button" class="act primary" id="copy">Copy config</button>
+  </div>
+
+  <pre id="out"></pre>
+
+  <p class="note">
+    The config lives in the repo because Render's free tier has no persistent
+    disk and spins down when idle, so a file written here would not survive,
+    and the two workers would not agree on it. Committing
+    <code>data/config.json</code> is what publishes a change.
+  </p>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var CURRENT = {{ config|safe }};
+
+  // Group order and labels. Keys match data/config.json, and the sections
+  // group acts as a master switch over the group it names.
+  var GROUPS = [
+    { key: "sections", title: "Panel sections", master: true, items: [
+      ["districts", "Zoom to a district"], ["elections", "School Board Elections"],
+      ["returns", "Ballot Returns"], ["demographics", "Demographics"],
+      ["basemap", "Basemap"], ["boundaries", "Boundaries"], ["labels", "Labels"]
+    ]},
+    { key: "elections", title: "Contests", under: "elections", items: [
+      ["d1_2023", "District 1 (2023)"], ["d2_2025", "District 2 (2025)"],
+      ["d3_2025", "District 3 (2025)"], ["d4_2025", "District 4 (2025)"],
+      ["d5_2023", "District 5 (2023)"], ["al_2023", "At-Large (2023)"],
+      ["al_2025", "At-Large (2025)"]
+    ]},
+    { key: "returns", title: "Ballot return years", under: "returns", items: [
+      ["r2025", "2025 Coordinated"], ["r2023", "2023 Coordinated"]
+    ]},
+    { key: "demographics", title: "Demographic measures", under: "demographics", items: [
+      ["income", "Median household income"], ["poverty", "Poverty rate"],
+      ["kids", "Households with children"], ["school", "Enrolled in school"],
+      ["renters", "Renter-occupied homes"],
+      ["language", "Speak a language other than English"],
+      ["pop", "Total population"]
+    ]},
+    { key: "boundaries", title: "Boundary layers", under: "boundaries", items: [
+      ["precincts", "Precincts"], ["council", "City Council"],
+      ["school", "School Board"], ["rtd", "RTD"], ["senate", "State Senate"],
+      ["house", "State House"], ["nbhd", "Neighborhoods"],
+      ["mask", "Dim outside Denver"]
+    ]},
+    { key: "filters", title: "Zoom-to-a-district menus", under: "districts", items: [
+      ["council", "City Council"], ["school", "School Board"], ["rtd", "RTD"],
+      ["senate", "State Senate"], ["house", "State House"]
+    ]},
+    { key: "detail", title: "Precinct details", items: [
+      ["voters", "Registered and active voters"],
+      ["neighborhood", "Neighborhood name"], ["code", "10-digit precinct code"]
+    ]}
+  ];
+
+  function readState(src) {
+    var out = {};
+    GROUPS.forEach(function (g) {
+      out[g.key] = {};
+      var group = src && typeof src[g.key] === "object" ? src[g.key] : null;
+      g.items.forEach(function (it) {
+        // an absent switch means visible; only an explicit false hides
+        var given = group ? group[it[0]] : undefined;
+        out[g.key][it[0]] = given === undefined ? true : !!given;
+      });
+    });
+    return out;
+  }
+
+  var state = readState(CURRENT);
+  var host = document.getElementById("cards");
+  var boxes = {};
+
+  GROUPS.forEach(function (g) {
+    var card = document.createElement("div");
+    card.className = "card";
+    var h = document.createElement("h2");
+    h.innerHTML = "<span>" + g.title + "</span>";
+    var toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.textContent = "all on / off";
+    toggle.addEventListener("click", function () {
+      var anyOff = g.items.some(function (it) { return !state[g.key][it[0]]; });
+      g.items.forEach(function (it) { state[g.key][it[0]] = anyOff; });
+      render();
+    });
+    h.appendChild(toggle);
+    card.appendChild(h);
+
+    g.items.forEach(function (it) {
+      var lab = document.createElement("label");
+      if (g.master) lab.className = "master";
+      var input = document.createElement("input");
+      input.type = "checkbox";
+      input.addEventListener("change", function () {
+        state[g.key][it[0]] = input.checked;
+        render();
+      });
+      var span = document.createElement("span");
+      span.textContent = it[1];
+      lab.appendChild(input);
+      lab.appendChild(span);
+      card.appendChild(lab);
+      boxes[g.key + ":" + it[0]] = { input: input, label: lab, group: g, item: it };
+    });
+    host.appendChild(card);
+  });
+
+  function render() {
+    var live = 0, total = 0;
+    Object.keys(boxes).forEach(function (id) {
+      var b = boxes[id];
+      var on = state[b.group.key][b.item[0]];
+      b.input.checked = on;
+      // a group whose parent section is off is dimmed, because nothing in it
+      // reaches the public whatever these say
+      var parentOff = b.group.under && !state.sections[b.group.under];
+      b.input.disabled = !!parentOff;
+      b.label.className = (b.group.master ? "master" : "") +
+                          (on && !parentOff ? "" : " off");
+      if (!b.group.master) { total++; if (on && !parentOff) live++; }
+    });
+    document.getElementById("summary").textContent =
+      live + " of " + total + " items public";
+    document.getElementById("out").textContent = configText();
+  }
+
+  function configText() {
+    var doc = {
+      _note: "Which parts of the map are public. The server filters the data " +
+             "it serves to match, so anything switched off is not " +
+             "downloadable, not merely hidden. Built on /admin."
+    };
+    GROUPS.forEach(function (g) { doc[g.key] = state[g.key]; });
+    return JSON.stringify(doc, null, 2);
+  }
+
+  document.getElementById("allOn").addEventListener("click", function () {
+    state = readState(null);
+    render();
+  });
+  document.getElementById("reset").addEventListener("click", function () {
+    state = readState(CURRENT);
+    render();
+  });
+  document.getElementById("copy").addEventListener("click", function () {
+    var btn = this;
+    var text = configText();
+    var done = function () {
+      btn.textContent = "Copied";
+      setTimeout(function () { btn.textContent = "Copy config"; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else {
+      fallback();
+    }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand("copy"); done(); } catch (e) {
+        btn.textContent = "Select it below";
+      }
+      ta.remove();
+    }
+  });
+
+  render();
+})();
+</script>

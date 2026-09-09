@@ -568,9 +568,13 @@
   // the city in one shade.
   var DEMO_RAMP = ["#edf8e9", "#d3eecd", "#b2e0ab", "#88ce87", "#5db96a",
                    "#37a055", "#1c8442", "#0c6633", "#005a32"];
-  // Anything wider than this reads as an unreliable estimate and is drawn with
-  // a dashed edge rather than being shown as if it were solid.
-  var MOE_WIDE = 0.30;
+  // Judged two ways, because one rule does not fit both. A median in dollars
+  // is measured against its own size. A share is measured in percentage
+  // points: a 3-point margin on a 4% poverty rate is a good estimate even
+  // though it is 75% of it. Either way, too wide gets a dashed edge rather
+  // than being drawn as if it were solid.
+  var MOE_WIDE_REL = 0.30;
+  var MOE_WIDE_PP = 10.0;
 
   var demographics = null;   // { measures: [...], precinctTract: {...} }
   var demo = null;           // the measure currently shaded, or null
@@ -587,8 +591,11 @@
     }
     return out;
   }
-  function demoWide(cell) {
-    return !!(cell && cell[1] && cell[0] && Math.abs(cell[1] / cell[0]) > MOE_WIDE);
+  function demoWide(cell, m) {
+    m = m || demo;
+    if (!cell || cell[1] == null || !m) return false;
+    if (m.wideRule === "pp") return cell[1] > MOE_WIDE_PP;
+    return !!cell[0] && Math.abs(cell[1] / cell[0]) > MOE_WIDE_REL;
   }
   function demoFmt(m, v, capped) {
     if (v == null) return "no estimate";
@@ -1538,8 +1545,10 @@
       '<div class="lg-scale">5th to 95th percentile; values beyond hold the ' +
       "end colour.</div>" +
       (wide ? '<div class="lg-moe"><i></i><span>' + wide + " of " + n +
-              " tracts have a margin of error over 30% of the estimate, drawn " +
-              "with a dashed edge.</span></div>" : "") +
+              " tracts have a margin of error over " +
+              (demo.wideRule === "pp" ? "10 percentage points"
+                                      : "30% of the estimate") +
+              ", drawn with a dashed edge.</span></div>" : "") +
       (demo.blank ? '<div class="lg-moe"><i style="border-top-style:solid;' +
               'border-color:#b9c3cd"></i><span>' + demo.blank +
               " tracts are left unfilled: the Census published no estimate, " +

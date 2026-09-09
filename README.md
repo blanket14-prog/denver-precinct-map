@@ -109,6 +109,23 @@ percentile, and any tract whose margin exceeds 30% of its estimate is drawn
 with a dashed edge. In the 2020-2024 median household income table that is 42
 of 174 tracts, one of them $121,379 give or take $82,893.
 
+The margin of a share is not the numerator's margin divided by the
+denominator. The numerator is part of the denominator, so the two move
+together, and the ACS handbook subtracts that shared variance. Skipping the
+correction overstates every share: renter-occupied came out at a median margin
+of 10.8 percentage points before it, against 8.4 after.
+
+Reliability is judged two ways for the same reason. A median in dollars is
+measured against its own size, flagged over 30%. A share is measured in
+percentage points, flagged over 10, because a 3-point margin on a 4% poverty
+rate is a good estimate even though it is 75% of it.
+
+Summed across the 178 tracts the tables give Denver 718,877 people, 335,428
+households, 21.6% of households with children, 51.2% renter-occupied, 23.9%
+speaking a language other than English at home, and 11.2% below poverty.
+Households and occupied housing units come from different tables and both total
+335,428, which is a useful check that the join is right.
+
 Two quirks of the ACS export are worth knowing. The Bureau top-codes a median
 it will not publish exactly: Washington Park and Hilltop both come through as
 "250,000+", which is the two richest tracts in Denver rather than missing data,

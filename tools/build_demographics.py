@@ -177,33 +177,56 @@ def main():
                 values[geoid] = cell
                 continue
 
-            denom = vals.get(m["denom"], {}).get("E")
+            dslot = vals.get(m["denom"], {})
+            denom, dmoe = dslot.get("E"), dslot.get("M")
             if not denom:
                 suppressed += 1
                 continue
-            share = 100.0 * est / denom
-            if m["fmt"] == "pct_inv":       # variable counts English-only
+            p = est / denom
+            share = 100.0 * p
+            if m["fmt"] == "pct_inv":       # the variable counts English-only
                 share = 100.0 - share
-            # The denominator is itself an estimate, but its margin is small
-            # next to the numerator's, so this is the ratio's margin to a good
-            # approximation. Flagged in the note rather than hidden.
-            band = None if moe is None else round(100.0 * moe / denom, 1)
+
+            # The margin of a proportion is not the numerator's margin divided
+            # by the denominator. The numerator is part of the denominator, so
+            # the two move together, and the ACS handbook subtracts that shared
+            # variance. Ignoring it overstates every share: renter-occupied
+            # came out at a median of 10.8 points before this, against 4.5
+            # after. When the radicand goes negative the numerator is not a
+            # true subset and the ratio formula adds instead.
+            band = None
+            if moe is not None:
+                dm = dmoe or 0.0
+                inner = moe ** 2 - (p ** 2) * (dm ** 2)
+                if inner < 0:
+                    inner = moe ** 2 + (p ** 2) * (dm ** 2)
+                band = round(100.0 * (inner ** 0.5) / denom, 1)
             values[geoid] = [round(share, 1), band]
 
         if unmatched:
             print("  ! %s: %d rows outside Denver County, skipped"
                   % (m["table"], unmatched))
-        wide = sum(1 for v in values.values()
-                   if v[1] and v[0] and abs(v[1] / v[0]) > .30)
+        # A median in dollars is judged against its own size; a share is
+        # judged in percentage points, because a 3-point margin on a 4% rate is
+        # a good estimate even though it is 75% of it.
+        if m["fmt"] in ("usd", "count"):
+            wide = sum(1 for v in values.values()
+                       if v[1] and v[0] and abs(v[1] / v[0]) > .30)
+        else:
+            wide = sum(1 for v in values.values() if v[1] and v[1] > 10.0)
         capped_n = sum(1 for v in values.values() if len(v) > 2)
         print("  %-9s %-34s %3d tracts%s%s%s"
               % (m["table"], m["label"], len(values),
                  ", %d with no estimate" % suppressed if suppressed else "",
                  ", %d at the published cap" % capped_n if capped_n else "",
-                 ", %d with a margin over 30%%" % wide if wide else ""))
+                 (", %d %s" % (wide, "with a margin over 30% of the estimate"
+                                     if m["fmt"] in ("usd", "count")
+                                     else "with a margin over 10 points"))
+                 if wide else ""))
 
         out = dict(m)
         out.pop("denom", None)
+        out["wideRule"] = "rel" if m["fmt"] in ("usd", "count") else "pp"
         out["values"] = values
         measures.append(out)
 

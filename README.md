@@ -41,9 +41,27 @@ per district spread 26% rather than the 47% of the 2023 map, which is the
 direction a redistricting should move.
 
 Twenty-one precincts moved, each carrying a `school_board_2023` property
-recording where it was. What the method cannot see is a trade between Districts
-1 and 5 that leaves both sides connected, since neither seat was on the 2025
-ballot. Dropping a current director-district export into `Maps/DPS Board/`
+recording where it was. The result is D1 68 precincts, D2 55, D3 64, D4 50,
+D5 64.
+
+This is exact rather than an estimate, and the argument closes. Both at-large
+contests appear in all 301 precincts, so every Denver precinct is inside DPS
+and belongs to one of the five seats. The 2025 ballots pin 169 of them
+outright. The other 132 had no D2, D3 or D4 contest, so each is in District 1
+or District 5. Those 132 form exactly two connected pieces, of 68 and 64, and a
+district has to be contiguous: two districts, two pieces, one piece each. There
+is no other way to divide them, and the 68-piece is District 1 because it holds
+all 67 precincts that voted in the 2023 District 1 contest while the 64-piece
+holds none of them.
+
+So there is no room for an unseen trade between Districts 1 and 5 either. In
+the 2025 map those two districts do not touch anywhere, and a precinct moved
+between them would have to be adjacent to the district receiving it.
+
+The one assumption is contiguity, and it is checked rather than asserted: all
+five districts in the shapefile's own 2023 map are single connected pieces
+under the same rule. A current director-district export would still be worth
+having as independent confirmation, and dropping one into `Maps/DPS Board/`
 makes the whole correction a no-op.
 
 **Registered voters** — Colorado Secretary of State monthly voter registration

@@ -109,6 +109,14 @@ percentile, and any tract whose margin exceeds 30% of its estimate is drawn
 with a dashed edge. In the 2020-2024 median household income table that is 42
 of 174 tracts, one of them $121,379 give or take $82,893.
 
+Two quirks of the ACS export are worth knowing. The Bureau top-codes a median
+it will not publish exactly: Washington Park and Hilltop both come through as
+"250,000+", which is the two richest tracts in Denver rather than missing data,
+so the builder reads them at the cap and the map says "or more". And a genuine
+blank, written "-", means too few households to survey; those tracts are left
+unfilled rather than coloured. In Denver that is the airport and one other
+unpopulated tract.
+
 The precinct detail bar names the tract a precinct's centre falls in. It is
 labelled as the tract, not as the precinct, because the two geographies cross.
 

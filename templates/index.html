@@ -590,11 +590,15 @@
   function demoWide(cell) {
     return !!(cell && cell[1] && cell[0] && Math.abs(cell[1] / cell[0]) > MOE_WIDE);
   }
-  function demoFmt(m, v) {
+  function demoFmt(m, v, capped) {
     if (v == null) return "no estimate";
-    if (m.fmt === "usd") return "$" + commas(Math.round(v));
-    if (m.fmt === "count") return commas(Math.round(v));
-    return v.toFixed(1) + "%";
+    var out;
+    if (m.fmt === "usd") out = "$" + commas(Math.round(v));
+    else if (m.fmt === "count") out = commas(Math.round(v));
+    else out = v.toFixed(1) + "%";
+    // "250,000+" is the Bureau declining to publish a figure above its cap,
+    // not a measurement of exactly that much
+    return capped ? out + " or more" : out;
   }
 
   var returns = null;        // { elections: [...] }
@@ -776,7 +780,7 @@
           ? '<span class="sw" style="background:' +
             demoColor(demo.hi > demo.lo
               ? (dcell[0] - demo.lo) / (demo.hi - demo.lo) : .5) +
-            '"></span><b>' + esc(demoFmt(demo, dcell[0])) + "</b>" +
+            '"></span><b>' + esc(demoFmt(demo, dcell[0], dcell[2])) + "</b>" +
             (dcell[1] != null
               ? ' <span class="was">\u00b1 ' + esc(demoFmt(demo, dcell[1])) +
                 (demoWide(dcell) ? ", wide" : "") + "</span>"
@@ -1535,7 +1539,11 @@
       "end colour.</div>" +
       (wide ? '<div class="lg-moe"><i></i><span>' + wide + " of " + n +
               " tracts have a margin of error over 30% of the estimate, drawn " +
-              "with a dashed edge.</span></div>" : "");
+              "with a dashed edge.</span></div>" : "") +
+      (demo.blank ? '<div class="lg-moe"><i style="border-top-style:solid;' +
+              'border-color:#b9c3cd"></i><span>' + demo.blank +
+              " tracts are left unfilled: the Census published no estimate, " +
+              "having too few households to survey.</span></div>" : "");
     demoLegend.hidden = false;
   }
 
@@ -1571,6 +1579,7 @@
     tractLayer = L.geoJSON(both[1], {
       pane: "tracts", renderer: tractRenderer, interactive: false
     });
+    var tractIds = both[1].features.map(function (f) { return f.properties.geoid; });
 
     demoRow("None", "", true);
     demographics.measures.forEach(function (m) {
@@ -1582,6 +1591,10 @@
       var at = function (q) { return vals[Math.round(q * (vals.length - 1))]; };
       m.lo = at(.05);
       m.hi = at(.95);
+      // tracts drawn on the map but carrying no value for this measure
+      m.blank = tractIds.filter(function (g) {
+        return !m.values[g] || m.values[g][0] == null;
+      }).length;
       byDemo[m.key] = m;
       demoRow(m.label, m.key, false);
     });

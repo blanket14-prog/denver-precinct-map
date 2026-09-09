@@ -104,6 +104,30 @@ def read_table(src, table):
         rows = list(csv.reader(fh))
     head = [h.strip() for h in rows[0]]
     out = {}
+
+    def parse(raw):
+        """(value, capped) from an ACS cell.
+
+        The Bureau top-codes a median it will not publish exactly: Washington
+        Park and Hilltop both come through as "250,000+" rather than a figure.
+        Those are the two richest tracts in Denver, not missing data, so they
+        are read at the cap and flagged. Blanks, "-", "N" and "(X)" really are
+        absent, and a margin of "**" or "***" means none was published.
+        """
+        txt = (raw or "").strip().replace(",", "")
+        if txt in ("", "-", "N", "(X)", "*", "**", "***", "null"):
+            return None, False
+        capped = txt.endswith(("+", "-")) and len(txt) > 1
+        if capped:
+            txt = txt[:-1]
+        try:
+            num = float(txt)
+        except ValueError:
+            return None, False
+        # -666666666 and friends are the Bureau's own suppression markers
+        if num <= -999999:
+            return None, False
+        return num, capped
     # Row 0 is the machine header, row 1 repeats it in prose; data starts at 2.
     for row in rows[2:]:
         if not row or not row[0].strip():
@@ -115,14 +139,11 @@ def read_table(src, table):
             if not col.endswith(("E", "M")) or "_" not in col:
                 continue
             var, kind = col[:-1], col[-1]
-            try:
-                num = float(raw)
-            except (TypeError, ValueError):
-                num = None
-            # The Bureau writes -666666666 and friends for suppressed cells.
-            if num is not None and num <= -999999:
-                num = None
-            vals.setdefault(var, {})[kind] = num
+            num, capped = parse(raw)
+            slot = vals.setdefault(var, {})
+            slot[kind] = num
+            if kind == "E" and capped:
+                slot["capped"] = True
         out[geoid] = vals
     return out
 
@@ -143,15 +164,17 @@ def main():
             if geoid not in tracts:
                 unmatched += 1
                 continue
-            est = vals.get(m["var"], {}).get("E")
-            moe = vals.get(m["var"], {}).get("M")
+            slot = vals.get(m["var"], {})
+            est, moe, capped = slot.get("E"), slot.get("M"), slot.get("capped")
             if est is None:
                 suppressed += 1
                 continue
 
             if m["fmt"] in ("usd", "count", "pct_direct"):
-                values[geoid] = [round(est, 1),
-                                 None if moe is None else round(moe, 1)]
+                cell = [round(est, 1), None if moe is None else round(moe, 1)]
+                if capped:
+                    cell.append(1)
+                values[geoid] = cell
                 continue
 
             denom = vals.get(m["denom"], {}).get("E")
@@ -172,9 +195,11 @@ def main():
                   % (m["table"], unmatched))
         wide = sum(1 for v in values.values()
                    if v[1] and v[0] and abs(v[1] / v[0]) > .30)
-        print("  %-9s %-34s %3d tracts%s%s"
+        capped_n = sum(1 for v in values.values() if len(v) > 2)
+        print("  %-9s %-34s %3d tracts%s%s%s"
               % (m["table"], m["label"], len(values),
-                 ", %d suppressed" % suppressed if suppressed else "",
+                 ", %d with no estimate" % suppressed if suppressed else "",
+                 ", %d at the published cap" % capped_n if capped_n else "",
                  ", %d with a margin over 30%%" % wide if wide else ""))
 
         out = dict(m)

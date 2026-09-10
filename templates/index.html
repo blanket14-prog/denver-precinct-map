@@ -4,6 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Denver Precinct Map</title>
+{% if ga_id %}
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+  // send_page_view is off so the path can be normalised first: a share code
+  // carries the entire map state, and reporting those as page paths would
+  // scatter one page across thousands of URLs.
+  gtag("config", "{{ ga_id }}", {
+    send_page_view: false,
+    anonymize_ip: true
+  });
+  gtag("event", "page_view", {
+    page_path: {{ ga_path|tojson }},
+    page_title: document.title,
+    shared_link: {{ ga_path|tojson }} === "/s"
+  });
+</script>
+{% endif %}
 <link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f6fa8'/%3E%3Cpath d='M6 20l7-11 6 8 3-4 4 7z' fill='%23cfe2f0'/%3E%3C/svg%3E">
 <style>
@@ -379,6 +399,14 @@
     return !g || g[key] === undefined ? true : !!g[key];
   }
 
+  // One place that knows whether analytics exists. Nothing here reports a
+  // street address or anything else a person typed: the search event records
+  // that a search happened and whether it landed, never what was searched.
+  function track(name, params) {
+    if (typeof gtag !== "function") return;
+    try { gtag("event", name, params || {}); } catch (e) {}
+  }
+
   var note = document.getElementById("note");
   var panel = document.querySelector(".panel");
   var toggle = document.getElementById("toggle");
@@ -583,6 +611,7 @@
     input.addEventListener("change", function () {
       if (input.checked) map.addLayer(layer);
       else map.removeLayer(layer);
+      track("boundary_toggle", { layer: label, on: input.checked });
     });
     row.appendChild(input);
     var sw = document.createElement("span");
@@ -1263,7 +1292,12 @@
     e.preventDefault();
     var q = document.getElementById("q").value.trim();
     if (!q) { say("Enter an address or a precinct number."); return; }
-    if (/^\d{1,4}$/.test(q)) findPrecinct(q);
+    var byNum = /^\d{1,4}$/.test(q);
+    // Kind of search only. Sending the address itself would put someone's home
+    // in a third party's analytics, and knowing that people look up addresses
+    // is the useful part anyway.
+    track("search", { kind: byNum ? "precinct" : "address" });
+    if (byNum) findPrecinct(q);
     else findAddress(q);
   });
 
@@ -1378,6 +1412,7 @@
     buildLegend();
     restyleAll();
     syncActive();
+    if (contest) track("layer_view", { layer_type: "results", layer: contest.key });
     if (picked) {
       // the selection keeps its own colour, but its readout has to follow
       showDetail((picked.feature && picked.feature.properties) || {});
@@ -1485,6 +1520,7 @@
     buildReturnLegend();
     restyleAll();
     syncActive();
+    if (returnYear) track("layer_view", { layer_type: "returns", layer: returnYear.key });
     if (picked) showDetail((picked.feature && picked.feature.properties) || {});
     var input = returnRows.querySelector(
       'input[value="' + (returnYear ? returnYear.key : "") + '"]');
@@ -1620,6 +1656,7 @@
     paintTracts();
     restyleAll();
     syncActive();
+    if (demo) track("layer_view", { layer_type: "demographics", layer: demo.key });
     if (picked) showDetail((picked.feature && picked.feature.properties) || {});
     var input = demoRows.querySelector(
       'input[value="' + (demo ? demo.key : "") + '"]');
@@ -2054,6 +2091,7 @@
 
   function openShare() {
     shareUrl.value = location.origin + "/s/" + encodeState();
+    track("share_open", { what: describeState() });
     document.getElementById("shareWhat").textContent = describeState();
     shareCopy.textContent = "Copy";
     shareCopy.className = "";

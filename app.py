@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import re
 import threading
 import time
 import urllib.error
@@ -17,6 +18,12 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 # second. We proxy geocoding through the server so both are actually enforced,
 # and so browsers are not making cross-origin calls to OSM on every keystroke.
 NOMINATIM = "https://nominatim.openstreetmap.org/search"
+# Set GA_MEASUREMENT_ID in the Render dashboard to switch analytics on. Left
+# unset, nothing is loaded at all, so local runs and forks stay untracked.
+GA_ID = (os.environ.get("GA_MEASUREMENT_ID") or "").strip()
+if GA_ID and not re.match(r"^G-[A-Z0-9]{4,20}$", GA_ID):
+    GA_ID = ""          # a typo should mean no analytics, not a broken tag
+
 USER_AGENT = os.environ.get(
     "GEOCODER_USER_AGENT",
     "denver-precinct-map/1.0 (https://github.com/blanket14-prog/denver-precinct-map)",
@@ -32,7 +39,7 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "30"
+APP_VERSION = "31"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json")
@@ -150,6 +157,11 @@ def index():
                              + geojson_version("demographics.json"),
             version=APP_VERSION,
             config=json.dumps(public_config(), separators=(",", ":")),
+            ga_id=GA_ID,
+            # Share codes carry the whole map state, so reporting them as page
+            # paths would scatter one page across thousands of distinct URLs
+            # and make every report useless. Every shared view counts as "/s".
+            ga_path="/s" if request.path.startswith("/s/") else request.path,
         )
     )
     resp.headers["Cache-Control"] = "no-cache"

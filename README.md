@@ -179,6 +179,23 @@ blank one. The config hash is folded into the data URLs, so switching something
 off busts the browser cache instead of leaving the old payload in place for a
 day.
 
+## Analytics
+
+Set `GA_MEASUREMENT_ID` in the Render dashboard to a GA4 id (`G-XXXXXXXXXX`) to
+switch Google Analytics on. Unset, nothing loads at all, so local runs and forks
+stay untracked. A value that is not a well-formed id is ignored rather than
+written into the page.
+
+Two things are deliberate. Share codes carry the whole map state, so reporting
+them as page paths would scatter one page across thousands of URLs; every
+shared view is reported as `/s` with a `shared_link` flag instead. And the
+search event records only whether someone searched by address or by precinct,
+never the text they typed, so nobody's home address ends up in a third party's
+analytics. `/admin` is not tracked.
+
+Events: `page_view`, `layer_view` (which shading was chosen),
+`boundary_toggle`, `search`, `share_open`.
+
 ## Run locally
 
     pip install -r requirements.txt

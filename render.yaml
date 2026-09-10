@@ -6,3 +6,9 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --timeout 60
     healthCheckPath: /healthz
+    envVars:
+      # Set in the Render dashboard, not here. sync: false tells Render the
+      # value is dashboard-managed so a blueprint sync never clears it.
+      # Unset means analytics are off, which is what we want locally.
+      - key: GA_MEASUREMENT_ID
+        sync: false

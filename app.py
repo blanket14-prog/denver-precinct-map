@@ -39,7 +39,7 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "32"
+APP_VERSION = "33"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json")

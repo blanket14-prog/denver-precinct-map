@@ -596,11 +596,32 @@
   // Leaflet's own layers control is a small icon in the corner that people
   // miss, so basemaps, boundaries and labels are rows in the one panel.
 
+  // The codes travel in share links, so they are fixed. "g" is the default
+  // and is left out of a link entirely, which keeps older links working.
   var BASEMAPS = [
-    { label: "Muted gray", layer: esriGray },
-    { label: "Street detail", layer: osmMuted },
-    { label: "No basemap", layer: blank }
+    { code: "g", label: "Muted gray", layer: esriGray },
+    { code: "s", label: "Street detail", layer: osmMuted },
+    { code: "n", label: "No basemap", layer: blank }
   ];
+  var baseInputs = {};
+
+  function currentBasemap() {
+    for (var i = 0; i < BASEMAPS.length; i++) {
+      if (map.hasLayer(BASEMAPS[i].layer)) return BASEMAPS[i].code;
+    }
+    return "g";
+  }
+
+  function applyBasemap(code) {
+    var want = null;
+    BASEMAPS.forEach(function (b) { if (b.code === code) want = b; });
+    if (!want) return;
+    BASEMAPS.forEach(function (o) {
+      if (o !== want && map.hasLayer(o.layer)) map.removeLayer(o.layer);
+    });
+    if (!map.hasLayer(want.layer)) map.addLayer(want.layer);
+    if (baseInputs[code]) baseInputs[code].checked = true;
+  }
 
   (function buildBasemapRows() {
     var host = document.getElementById("baseRows");
@@ -610,12 +631,8 @@
       input.type = "radio";
       input.name = "basemap";
       input.checked = map.hasLayer(b.layer);
-      input.addEventListener("change", function () {
-        BASEMAPS.forEach(function (o) {
-          if (map.hasLayer(o.layer)) map.removeLayer(o.layer);
-        });
-        map.addLayer(b.layer);
-      });
+      baseInputs[b.code] = input;
+      input.addEventListener("change", function () { applyBasemap(b.code); });
       row.appendChild(input);
       var sw = document.createElement("span");
       sw.className = "nosw";
@@ -1980,6 +1997,8 @@
     if (picked && picked.feature && picked.feature.properties) {
       out.push("p" + picked.feature.properties.precinct);
     }
+    var bm = currentBasemap();
+    if (bm !== "g") out.push("m" + bm);
     if (opts && opts.viewOnly) out.push("v1");
     var c = map.getCenter();
     // Round it. Mid-flight the zoom is fractional, and both the share parser
@@ -2010,7 +2029,8 @@
     }
 
     var view = null, wantFilter = null, wantPrecinct = null, wantContest = null,
-        wantReturn = null, wantCut = null, wantDemo = null, wantViewOnly = false;
+        wantReturn = null, wantCut = null, wantDemo = null, wantViewOnly = false,
+        wantBase = null;
     segs.slice(1).forEach(function (seg) {
       if (seg.charAt(0) === "e") {
         wantContest = seg.slice(1);
@@ -2023,6 +2043,8 @@
       } else if (seg.charAt(0) === "f") {
         var key = CODE_FILTER[seg.charAt(1)];
         if (key) wantFilter = { key: key, val: seg.slice(2) };
+      } else if (seg.charAt(0) === "m") {
+        wantBase = seg.slice(1);
       } else if (seg.charAt(0) === "v") {
         wantViewOnly = seg.slice(1) === "1";
       } else if (seg.charAt(0) === "p") {
@@ -2082,6 +2104,7 @@
     if (view && !wantPrecinct) {
       map.setView([view.lat, view.lng], view.zoom, { animate: false });
     }
+    if (wantBase) applyBasemap(wantBase);
     if (wantViewOnly) setViewOnly();
     if (wantFilter || wantPrecinct || wantContest || wantReturn || wantDemo) {
       setCollapsed(true);

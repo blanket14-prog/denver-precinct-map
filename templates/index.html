@@ -469,6 +469,17 @@
     zoom: 11, minZoom: 9, maxZoom: 18,
     zoomControl: false, preferCanvas: true
   });
+  // A share link or a remembered view is going to set the view itself. The
+  // opening fit-to-the-whole-county must then not run at all: it lands after
+  // the restore, and its zoom animation swallows the setView that is trying
+  // to put the view back, which is why a link could open on the county with
+  // its own zoom quietly discarded.
+  var incomingView = /^\/s\/.+/.test(location.pathname);
+  try {
+    incomingView = incomingView ||
+      !!localStorage.getItem("denver-precinct-map:lastView");
+  } catch (e) { /* private browsing */ }
+
   // bottom-left is the layers panel now, so the scale goes right
   L.control.scale({ imperial: true, metric: false, position: "bottomright" }).addTo(map);
 
@@ -1095,7 +1106,9 @@
         clearSelection();
         restyleAll();
         syncActive();
-        map.flyToBounds(bounds, { padding: [40, 40], duration: .7 });
+        if (!restoringView) {
+          map.flyToBounds(bounds, { padding: [40, 40], duration: .7 });
+        }
         say(d.label.replace(/^./, function (c) { return c.toUpperCase(); }) + " " + v +
             ": " + n + " precinct" + (n === 1 ? "" : "s") +
             (active ? ", " + commas(active) + " active voters" : "") + ".");
@@ -1121,7 +1134,33 @@
     if (filterKey) { filterKey = filterVal = null; restyleAll(); }
   }
 
+  // Leaflet's setView does nothing at all if a zoom animation is already in
+  // flight: _tryAnimatedZoom returns true for "handled" and setView returns
+  // early. So a share link that set a filter AND a view could lose the view,
+  // because applying the filter starts a fly-to whose animation then swallows
+  // the setView that follows it. Whether it did depended on the window height,
+  // since that decides the fly's target zoom and a fly to the zoom you are
+  // already at never animates. Restoring a link now suppresses those flights.
+  var restoringView = false;
+
+  // setView is a no-op while a zoom animation is running, and _animatingZoom
+  // is only cleared when that animation ends, so stopping the map is not
+  // enough on its own. Ask again every 50ms until the zoom we were given is
+  // the zoom we have, then stop asking. In practice it takes one or two goes,
+  // and it is bounded so it can never fight the person using the map.
+  function forceView(v) {
+    var tries = 0;
+    (function go() {
+      map.stop();
+      map.setView([v.lat, v.lng], v.zoom, { animate: false });
+      if (Math.round(map.getZoom()) !== v.zoom && ++tries < 25) {
+        setTimeout(go, 50);
+      }
+    })();
+  }
+
   function zoomDenver() {
+    if (restoringView) return;
     if (!layers.getLayers().length) return;
     map.flyToBounds(layers.getBounds(), { padding: [20, 20], duration: .7 });
   }
@@ -2016,6 +2055,9 @@
     code = String(code || "");
     var segs = code.indexOf("~") >= 0 ? code.split("~") : code.split(".");
 
+    var hasView = /(^|~)z\d+@/.test(code);
+    restoringView = hasView;
+
     var bits = parseInt(segs[0], 36);
     if (!isNaN(bits)) {
       LAYER_BITS.forEach(function (b) {
@@ -2102,8 +2144,9 @@
       selectLayer(byNumber[wantPrecinct]);
     }
     if (view && !wantPrecinct) {
-      map.setView([view.lat, view.lng], view.zoom, { animate: false });
+      forceView(view);
     }
+    restoringView = false;
     if (wantBase) applyBasemap(wantBase);
     if (wantViewOnly) setViewOnly();
     if (wantFilter || wantPrecinct || wantContest || wantReturn || wantDemo) {
@@ -2269,7 +2312,9 @@
       buildPrecinctLabels();
       syncLabels();
       syncActive();
-      map.fitBounds(layers.getBounds(), { padding: [20, 20] });
+      if (!incomingView) {
+        map.fitBounds(layers.getBounds(), { padding: [20, 20] });
+      }
       say("Click any precinct to zoom in and see its details.");
     })
     .catch(function (err) {

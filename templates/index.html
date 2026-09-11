@@ -216,6 +216,13 @@
   /* the number is already painted on the precinct, so drop the hover chip */
   .pnum-on .leaflet-tooltip{display:none!important}
   .addr-pin{border:2px solid #b4531f;background:rgba(224,139,62,.35);border-radius:50%}
+  .viewonly{display:flex;gap:9px;align-items:flex-start;margin:12px 0 2px;cursor:pointer;
+    font-size:12.5px;line-height:1.45;color:#33403e}
+  .viewonly input{margin:2px 0 0;flex:none}
+  .viewonly b{font-weight:600}
+  /* view-only links drop the panel entirely rather than collapsing it, so
+     there is no caret to find and nothing to reopen */
+  body.viewonly .panel{display:none}
   .active-card{background:rgba(255,255,255,.9);border-radius:4px;padding:5px 8px 6px;
                box-shadow:0 0 0 1px rgba(0,0,0,.07);max-width:230px;margin-bottom:5px}
   .active-card .h{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
@@ -366,6 +373,9 @@
       <input id="shareUrl" type="text" readonly aria-label="Shareable link">
       <button type="button" id="shareCopy">Copy</button>
     </div>
+    <label class="viewonly"><input type="checkbox" id="shareViewOnly">
+      <span><b>Hide the controls panel.</b> The link opens a clean map that can be panned,
+      zoomed and clicked, with nothing to change and no way to reopen the panel.</span></label>
     <p class="hint" id="shareHint">Anyone with the link opens the map exactly as you have it now.</p>
   </div>
 </div>
@@ -411,7 +421,19 @@
   var panel = document.querySelector(".panel");
   var toggle = document.getElementById("toggle");
 
+  // A view-only link hands someone the map without the controls: they can pan,
+  // zoom and click a precinct, and there is nothing to change. The panel is
+  // removed rather than hidden so no stray keyboard focus lands inside it.
+  var viewOnly = false;
+  function setViewOnly() {
+    if (viewOnly) return;
+    viewOnly = true;
+    document.body.classList.add("viewonly");
+    if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+  }
+
   function setCollapsed(on) {
+    if (viewOnly) return;
     panel.classList.toggle("collapsed", on);
     toggle.setAttribute("aria-expanded", on ? "false" : "true");
   }
@@ -419,9 +441,11 @@
     setCollapsed(!panel.classList.contains("collapsed"));
   });
 
+
   // Once a setting has been changed the panel has done its job, so the next
   // touch of the map folds it away instead of leaving it over the county.
   function collapseOnMapUse() {
+    if (viewOnly) return;
     if (!panel.classList.contains("collapsed")) setCollapsed(true);
   }
 
@@ -1934,7 +1958,7 @@
     return null;
   }
 
-  function encodeState() {
+  function encodeState(opts) {
     var bits = 0;
     LAYER_BITS.forEach(function (b) {
       var lyr = b.get ? b.get() : layerFor(b.key);
@@ -1956,6 +1980,7 @@
     if (picked && picked.feature && picked.feature.properties) {
       out.push("p" + picked.feature.properties.precinct);
     }
+    if (opts && opts.viewOnly) out.push("v1");
     var c = map.getCenter();
     // Round it. Mid-flight the zoom is fractional, and both the share parser
     // and the saved-view parser want an integer, so a link or a remembered
@@ -1985,7 +2010,7 @@
     }
 
     var view = null, wantFilter = null, wantPrecinct = null, wantContest = null,
-        wantReturn = null, wantCut = null, wantDemo = null;
+        wantReturn = null, wantCut = null, wantDemo = null, wantViewOnly = false;
     segs.slice(1).forEach(function (seg) {
       if (seg.charAt(0) === "e") {
         wantContest = seg.slice(1);
@@ -1998,6 +2023,8 @@
       } else if (seg.charAt(0) === "f") {
         var key = CODE_FILTER[seg.charAt(1)];
         if (key) wantFilter = { key: key, val: seg.slice(2) };
+      } else if (seg.charAt(0) === "v") {
+        wantViewOnly = seg.slice(1) === "1";
       } else if (seg.charAt(0) === "p") {
         wantPrecinct = seg.slice(1);
       } else if (seg.charAt(0) === "z") {
@@ -2055,6 +2082,7 @@
     if (view && !wantPrecinct) {
       map.setView([view.lat, view.lng], view.zoom, { animate: false });
     }
+    if (wantViewOnly) setViewOnly();
     if (wantFilter || wantPrecinct || wantContest || wantReturn || wantDemo) {
       setCollapsed(true);
     }
@@ -2089,9 +2117,17 @@
   var shareUrl = document.getElementById("shareUrl");
   var shareCopy = document.getElementById("shareCopy");
 
+  var shareViewOnly = document.getElementById("shareViewOnly");
+
+  function shareLink() {
+    return location.origin + "/s/" +
+           encodeState({ viewOnly: shareViewOnly && shareViewOnly.checked });
+  }
+
   function openShare() {
-    shareUrl.value = location.origin + "/s/" + encodeState();
-    track("share_open", { what: describeState() });
+    shareUrl.value = shareLink();
+    track("share_open", { what: describeState(),
+                          view_only: !!(shareViewOnly && shareViewOnly.checked) });
     document.getElementById("shareWhat").textContent = describeState();
     shareCopy.textContent = "Copy";
     shareCopy.className = "";
@@ -2100,6 +2136,20 @@
     shareUrl.select();
   }
   function closeShare() { shareModal.hidden = true; }
+
+  if (shareViewOnly) {
+    shareViewOnly.addEventListener("change", function () {
+      shareUrl.value = shareLink();
+      shareCopy.textContent = "Copy";
+      shareCopy.className = "";
+      document.getElementById("shareHint").textContent = shareViewOnly.checked
+        ? "The panel is gone for whoever opens this. They can still pan, zoom and "
+          + "click a precinct."
+        : "Anyone with the link opens the map exactly as you have it now.";
+      shareUrl.focus();
+      shareUrl.select();
+    });
+  }
 
   // A section the config turns off, or one that has nothing left inside it,
   // is removed rather than left as an empty heading.

@@ -197,6 +197,20 @@ Events: `page_view`, `layer_view` (which shading was chosen),
 `boundary_toggle`, `search`, `share_open`, `image_open`, `image_download`
 (format and size only).
 
+## Zooming
+
+The map moves in half zoom levels. A whole level doubles the scale, which over
+a county this size overshoots whatever you were looking at, so the +/- buttons,
+the keyboard, a double-click and the wheel all step by half. Leaflet needs
+`zoomSnap` set to match `zoomDelta`: `zoomSnap` is the grid the map is allowed
+to land on, and leaving it at 1 rounds every half step straight back.
+
+Share links carry the half, written as `z13.5`. Whole numbers still write as
+`z13`, so every link sent before this opens exactly as it did. At a half level
+Leaflet keeps serving tiles from the nearer whole level and scales them, which
+is a slight softening of the basemap; the precincts, outlines and numbers are
+drawn from geometry and stay sharp at any zoom.
+
 ## Labels on the map
 
 A precinct shows its number as soon as its own shape has room for it, not when

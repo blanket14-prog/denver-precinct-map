@@ -194,7 +194,59 @@ never the text they typed, so nobody's home address ends up in a third party's
 analytics. `/admin` is not tracked.
 
 Events: `page_view`, `layer_view` (which shading was chosen),
-`boundary_toggle`, `search`, `share_open`.
+`boundary_toggle`, `search`, `share_open`, `image_open`, `image_download`
+(format and size only).
+
+## Share links
+
+`/s/<code>` carries the whole view. The code is `~`-separated: a base36 bitmask
+of the boundary layers first, then optional segments for the district filter
+(`f`), contest (`e`), demographic measure (`d`), return year (`b`) and its
+threshold (`t`), basemap (`m`), view-only (`v1`), selected precinct (`p`), and
+last the view itself (`z<zoom>@<lat>,<lng>`).
+
+Every control in the panel that changes what you see is in there, which is the
+point: a link that quietly drops one setting is worse than no link. Two bits
+are inverted on purpose -- bit 128 means "precincts hidden" and bits 256 and
+512 mean the precinct and district numbers are *off* -- so that links written
+before those things were shareable still open the way they always did, with
+all three on.
+
+A view-only link (`v1`) removes the controls panel outright rather than
+collapsing it, so there is no caret to find and nothing to reopen. It is what
+the Squarespace embed uses.
+
+## Downloading the view as a picture
+
+The **Image** button writes the current view to a PNG or JPG at one, two or
+three times the size it is on screen, and the sheet shows the exact pixel
+dimensions before you commit. The picture is the map area only: no controls
+panel, no modal, no zoom buttons.
+
+It is composited by hand rather than with a DOM-to-canvas library. On screen
+the map is only ever three things -- tile images, the canvases Leaflet paints
+the precincts and outlines into, and a handful of text labels -- so the
+exporter walks the panes in z-index order and handles those three cases. That
+keeps the app free of another dependency and, more usefully, lets the labels,
+the scale bar, the "Showing" key and the credit line be *redrawn* at the
+output size rather than upscaled, so they stay sharp at 3x. The basemap and
+the precinct shapes are upscaled from what is on screen, which is the usual
+trade for this kind of export.
+
+Tiles are the one wrinkle. Tiles already on screen were fetched without CORS,
+so drawing them straight into a canvas would taint it and `toBlob` would
+throw. Putting `crossOrigin` on the live tile layers would fix that and break
+the basemap outright the day Esri or OSM stopped sending the header, so the
+live layers are left alone and each visible tile is re-requested at export
+time as a CORS twin. A twin that fails is skipped, and the sheet says how many
+were missing rather than handing over a map with silently blank ground.
+
+The credit line is drawn into the corner of every picture, because the
+attribution has to travel with the image once it leaves the page.
+
+A view-only share link has no panel, so it gets a small download button under
+the zoom control instead. `data/config.json` can switch it off with
+`"actions": {"download": false}`.
 
 ## Run locally
 

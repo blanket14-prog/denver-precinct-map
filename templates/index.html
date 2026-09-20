@@ -44,11 +44,12 @@
        viewport and let the body scroll. Otherwise it swallows the map. */
     max-height:min(calc(100vh - 28px), 74vh);
   }
-  .panel h1{margin:0;padding:13px 15px 11px 15px;font-size:15px;font-weight:650;letter-spacing:.1px;
+  .panel h1{margin:0;padding:13px 46px 11px 15px;font-size:15px;font-weight:650;letter-spacing:.1px;
     flex:none;position:relative}
   .panel h1 span#count{display:block;font-size:11.5px;font-weight:450;color:var(--muted);
     margin-top:2px;letter-spacing:.2px}
   .panel h1 .hactions{position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:7px}
+  .panel h1 .hlinks{display:flex;align-items:center;gap:11px;margin-top:7px;font-weight:450}
   .panel h1 #toggle{width:26px;height:26px;padding:0;
     display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--muted);
     background:#fff;border:1px solid var(--line);border-radius:6px;cursor:pointer;line-height:1}
@@ -168,10 +169,33 @@
   .modal .row button:hover{background:#27608f}
   .modal .row button.ok{background:#15803d}
   .modal .hint{margin:11px 0 0;font-size:11.5px;color:#98a2ae}
-  .modal #shareClose{position:absolute;top:12px;right:12px;width:26px;height:26px;
+  .modal .x{position:absolute;top:12px;right:12px;width:26px;height:26px;
     padding:0;font-size:17px;line-height:1;color:var(--muted);background:#fff;
     border:1px solid var(--line);border-radius:6px;cursor:pointer}
-  .modal #shareClose:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .modal .x:hover{border-color:var(--accent-soft);color:var(--accent)}
+  /* download sheet: one row per size, with what you actually get */
+  .modal .hint.ok{color:#15803d}
+  .modal .hint.bad{color:#b4531f}
+  .modal .dlopt{display:flex;flex-direction:column;line-height:1.35}
+  .modal .dlopt b{font-weight:600;font-variant-numeric:tabular-nums}
+  .modal .dlnote{font-style:normal;font-size:11px;color:var(--muted)}
+  .modal .rows label.off{opacity:.5;cursor:default}
+  .modal .rows label.off:hover{background:none}
+  .modal .fmt{display:flex;gap:4px;margin:10px 0 14px;padding-top:10px;
+    border-top:1px solid var(--line)}
+  .modal .fmt label{display:flex;align-items:center;gap:7px;padding:3px 6px;
+    font-size:12.5px;border-radius:5px;cursor:pointer;user-select:none}
+  .modal .fmt label:hover{background:var(--wash)}
+  .modal .fmt input{flex:none;min-width:0;width:auto;padding:0;margin:0;
+    accent-color:var(--accent);box-shadow:none;background:none;border:0}
+  .modal .rows input{flex:none;min-width:0;width:auto;padding:0;margin:0;
+    accent-color:var(--accent);box-shadow:none;background:none;border:0}
+  .modal .row button:disabled{background:#9db4c8;cursor:default}
+  /* the download button a view-only link gets instead of the panel */
+  .dlbar{border-radius:8px;border:1px solid var(--line);
+    box-shadow:0 4px 16px rgba(20,30,45,.12);overflow:hidden;margin-top:8px!important}
+  .dlbar a.dlbtn{font-size:19px;line-height:28px;color:#3d4753}
+  .dlbar a.dlbtn:hover{color:var(--accent)}
 
   .leaflet-container{font:inherit}
   .muted-tiles{filter:grayscale(.85) brightness(1.06) contrast(.92)}
@@ -300,12 +324,16 @@
 <div class="panel">
   <h1>
     <span class="hactions">
-      <button type="button" id="share" class="link">Share</button>
-      <button type="button" id="reset" class="link">Reset</button>
       <button type="button" id="toggle" aria-expanded="true" aria-controls="panelBody"
               title="Show or hide the controls"><span id="chev">&#9662;</span></button>
     </span>
     Denver Precincts<span id="count">Loading precincts…</span>
+    <span class="hlinks">
+      <button type="button" id="imgBtn" class="link"
+              title="Download this view as an image">Image</button>
+      <button type="button" id="share" class="link">Share</button>
+      <button type="button" id="reset" class="link">Reset</button>
+    </span>
   </h1>
   <div class="btnrow always">
     <button type="button" id="zoomDenver">Denver</button>
@@ -366,7 +394,7 @@
 
 <div class="modal" id="shareModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
-    <button type="button" id="shareClose" aria-label="Close">&times;</button>
+    <button type="button" id="shareClose" class="x" aria-label="Close">&times;</button>
     <h2 id="shareTitle">Share this view</h2>
     <p class="what" id="shareWhat"></p>
     <div class="row">
@@ -377,6 +405,23 @@
       <span><b>Hide the controls panel.</b> The link opens a clean map that can be panned,
       zoomed and clicked, with nothing to change and no way to reopen the panel.</span></label>
     <p class="hint" id="shareHint">Anyone with the link opens the map exactly as you have it now.</p>
+  </div>
+</div>
+
+<div class="modal" id="imgModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="imgTitle">
+    <button type="button" id="imgClose" class="x" aria-label="Close">&times;</button>
+    <h2 id="imgTitle">Download this view</h2>
+    <p class="what" id="imgWhat"></p>
+    <div class="rows" id="imgSizes"></div>
+    <div class="fmt">
+      <label><input type="radio" name="imgfmt" value="png" checked>PNG</label>
+      <label><input type="radio" name="imgfmt" value="jpg">JPG</label>
+    </div>
+    <div class="row">
+      <button type="button" id="imgGo">Download</button>
+    </div>
+    <p class="hint" id="imgHint"></p>
   </div>
 </div>
 
@@ -430,6 +475,7 @@
     viewOnly = true;
     document.body.classList.add("viewonly");
     if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+    addDownloadControl();
   }
 
   function setCollapsed(on) {
@@ -1922,12 +1968,20 @@
     map.getContainer().classList.toggle("pnum-on", wantPrecincts);
   }
 
+  // A share link can now turn these off, so the checkboxes have to be able
+  // to follow the state rather than only drive it.
+  var labelInputs = [];
+  function syncLabelInputs() {
+    labelInputs.forEach(function (r) { r.input.checked = r.get(); });
+  }
+
   function addLabelToggle(label, get, set) {
     var host = document.getElementById("labelRows");
     var row = document.createElement("label");
     var input = document.createElement("input");
     input.type = "checkbox";
     input.checked = get();
+    labelInputs.push({ input: input, get: get });
     input.addEventListener("change", function () {
       set(input.checked);
       syncLabels();
@@ -1997,7 +2051,17 @@
     { bit: 64, key: "nbhd" },
     // Inverted on purpose: the bit means "precincts hidden", so share links
     // created before the precincts were toggleable still open with them on.
-    { bit: 128, get: function () { return layers; }, invert: true }
+    { bit: 128, get: function () { return layers; }, invert: true },
+    // The two Labels checkboxes are not layers, so they carry their own
+    // getter and setter. Both are inverted for the same reason as the
+    // precincts bit: the bit means "off", so every link written before they
+    // were shareable still opens with the numbers on, which is the default.
+    { bit: 256, invert: true,
+      getOn: function () { return showPrecinctLabels; },
+      setOn: function (v) { showPrecinctLabels = v; } },
+    { bit: 512, invert: true,
+      getOn: function () { return showDistrictLabels; },
+      setOn: function (v) { showDistrictLabels = v; } }
   ];
   // NB: the filter selectors key off the precinct property names
   // (school_board), while the overlay layers key off the layer names
@@ -2017,9 +2081,14 @@
   function encodeState(opts) {
     var bits = 0;
     LAYER_BITS.forEach(function (b) {
-      var lyr = b.get ? b.get() : layerFor(b.key);
-      if (!lyr) return;
-      var on = map.hasLayer(lyr);
+      var on;
+      if (b.getOn) {
+        on = b.getOn();
+      } else {
+        var lyr = b.get ? b.get() : layerFor(b.key);
+        if (!lyr) return;
+        on = map.hasLayer(lyr);
+      }
       if (b.invert ? !on : on) bits |= b.bit;
     });
 
@@ -2061,13 +2130,16 @@
     var bits = parseInt(segs[0], 36);
     if (!isNaN(bits)) {
       LAYER_BITS.forEach(function (b) {
-        var lyr = b.get ? b.get() : layerFor(b.key);
-        if (!lyr) return;
         var set = (bits & b.bit) !== 0;
         var want = b.invert ? !set : set;
+        if (b.setOn) { b.setOn(want); return; }
+        var lyr = b.get ? b.get() : layerFor(b.key);
+        if (!lyr) return;
         if (want && !map.hasLayer(lyr)) map.addLayer(lyr);
         if (!want && map.hasLayer(lyr)) map.removeLayer(lyr);
       });
+      syncLabelInputs();
+      syncLabels();
     }
 
     var view = null, wantFilter = null, wantPrecinct = null, wantContest = null,
@@ -2264,6 +2336,549 @@
       });
     }
   );
+
+  // ---- download the current view as an image ----------------------------
+  // The picture is composited by hand rather than with a DOM-to-canvas
+  // library. The map is only ever three things on screen -- tile images, the
+  // canvases Leaflet paints precincts and outlines into, and a handful of
+  // text labels -- so walking those three cases keeps this dependency-free
+  // and, more usefully, lets the whole thing be redrawn at any scale.
+  //
+  // Tiles are the one wrinkle. The tiles already on screen were fetched
+  // without CORS, so drawing them straight in would taint the canvas and
+  // toBlob would throw. The live layers are deliberately left alone --
+  // putting crossOrigin on them would break the basemap outright the day a
+  // tile host stopped sending the header -- and each visible tile is instead
+  // re-requested here as a CORS twin. A twin that fails is skipped, and the
+  // download says so rather than quietly handing over a map with no ground.
+
+  var DL_SCALES = [
+    { key: "s", label: "Small",  scale: 1, note: "web and email" },
+    { key: "m", label: "Medium", scale: 2, note: "slides and documents" },
+    { key: "l", label: "Large",  scale: 3, note: "printing and posters" }
+  ];
+  // A hovered precinct chip or an open popup is screen furniture, not part of
+  // the map, so those panes never reach the picture.
+  var DL_SKIP_PANES = { tooltipPane: 1, popupPane: 1, shadowPane: 1 };
+  var DL_MAX_PIXELS = 50e6;
+  var DL_UI_FONT = '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,' +
+                   'Helvetica,Arial,sans-serif';
+
+  function dlPanes() {
+    var panes = map.getPanes(), out = [], name, el, z;
+    for (name in panes) {
+      if (name === "mapPane" || DL_SKIP_PANES[name]) continue;
+      el = panes[name];
+      if (!el || !el.parentNode) continue;
+      z = parseInt(getComputedStyle(el).zIndex, 10);
+      out.push({ el: el, z: isNaN(z) ? 0 : z });
+    }
+    // Panes are stacked by z-index on screen, so the picture has to be
+    // painted in that same order: tiles, tracts, mask, precincts, outlines,
+    // then labels on top.
+    out.sort(function (a, b) { return a.z - b.z; });
+    return out;
+  }
+
+  // Opacity and CSS filters are inherited down the tree, because the muted
+  // street basemap gets its grey from a filter on the layer container rather
+  // than on each tile.
+  function dlWalk(el, jobs, alpha, filter) {
+    var kids = el.children;
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      var cs = getComputedStyle(c);
+      if (cs.display === "none" || cs.visibility === "hidden") continue;
+      var op = parseFloat(cs.opacity);
+      if (isNaN(op)) op = 1;
+      var a = alpha * op;
+      if (a <= 0.01) continue;
+      var f = (cs.filter && cs.filter !== "none") ? cs.filter : filter;
+      var tag = c.tagName ? c.tagName.toLowerCase() : "";
+      if (tag === "img" || tag === "canvas" || tag === "svg") {
+        jobs.push({ kind: tag, el: c, alpha: a, filter: f });
+      } else if (c.classList && c.classList.contains("dlabel")) {
+        jobs.push({ kind: "text", el: c, alpha: a, filter: f });
+      } else {
+        var lab = c.querySelector ? c.querySelector(".dlabel") : null;
+        if (lab) jobs.push({ kind: "text", el: lab, alpha: a, filter: f });
+        else dlWalk(c, jobs, a, f);
+      }
+    }
+  }
+
+  function dlCollect() {
+    var jobs = [];
+    dlPanes().forEach(function (p) { dlWalk(p.el, jobs, 1, "none"); });
+    return jobs;
+  }
+
+  // Loads a CORS-clean copy of every tile, and rasterises any SVG layer.
+  // Nothing here can fail the download: anything that does not arrive inside
+  // the timeout is left out and counted.
+  function dlPreload(jobs, cb) {
+    var pending = 0, done = false, urls = [], twins = {};
+    var tiles = 0, missed = 0;
+
+    function finish() {
+      if (done || pending > 0) return;
+      done = true;
+      urls.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) {} });
+      cb({ tiles: tiles, missed: missed });
+    }
+
+    jobs.forEach(function (j) {
+      var im;
+      if (j.kind === "img") {
+        var src = j.el.currentSrc || j.el.src;
+        if (!src) { j.skip = true; return; }
+        tiles++;
+        if (twins[src]) { j.img = twins[src]; return; }
+        im = new Image();
+        im.crossOrigin = "anonymous";
+        twins[src] = im;
+        j.img = im;
+        pending++;
+        im.onload = function () { pending--; finish(); };
+        im.onerror = function () { im.failed = true; pending--; finish(); };
+        im.src = src;
+      } else if (j.kind === "svg") {
+        try {
+          var s = new XMLSerializer().serializeToString(j.el);
+          var url = URL.createObjectURL(
+            new Blob([s], { type: "image/svg+xml;charset=utf-8" }));
+          urls.push(url);
+          im = new Image();
+          j.img = im;
+          pending++;
+          im.onload = function () { pending--; finish(); };
+          im.onerror = function () { im.failed = true; pending--; finish(); };
+          im.src = url;
+        } catch (e) { j.skip = true; }
+      }
+    });
+
+    setTimeout(function () {
+      if (!done) {
+        Object.keys(twins).forEach(function (k) {
+          if (!twins[k].complete || !twins[k].naturalWidth) twins[k].failed = true;
+        });
+        pending = 0;
+        finish();
+      }
+    }, 15000);
+
+    finish();
+  }
+
+  function dlPaintText(ctx, el, x, y, h) {
+    var cs = getComputedStyle(el);
+    ctx.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " +
+               cs.fontFamily;
+    if ("letterSpacing" in ctx) {
+      try {
+        ctx.letterSpacing = (cs.letterSpacing && cs.letterSpacing !== "normal")
+          ? cs.letterSpacing : "0px";
+      } catch (e) {}
+    }
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    var text = el.textContent;
+    var ty = y + h / 2;
+    // -webkit-text-stroke is a centred stroke under the fill, which is
+    // exactly strokeText followed by fillText.
+    var sw = parseFloat(cs.webkitTextStrokeWidth || "0");
+    if (sw > 0) {
+      ctx.lineWidth = sw;
+      ctx.lineJoin = "round";
+      ctx.miterLimit = 2;
+      ctx.strokeStyle = cs.webkitTextStrokeColor || "rgba(255,255,255,.92)";
+      ctx.strokeText(text, x, ty);
+    }
+    ctx.fillStyle = cs.color;
+    ctx.fillText(text, x, ty);
+  }
+
+  function dlPaint(ctx, jobs, mr) {
+    jobs.forEach(function (j) {
+      if (j.skip) return;
+      var r = j.el.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      var x = r.left - mr.left, y = r.top - mr.top;
+      ctx.save();
+      ctx.globalAlpha = j.alpha;
+      if (j.filter && j.filter !== "none" && "filter" in ctx) {
+        try { ctx.filter = j.filter; } catch (e) {}
+      }
+      if (j.kind === "text") {
+        dlPaintText(ctx, j.el, x, y, r.height);
+      } else {
+        var src = j.kind === "canvas" ? j.el : j.img;
+        var ok = src && !src.failed &&
+                 (j.kind === "canvas" || (src.complete && src.naturalWidth));
+        if (ok) { try { ctx.drawImage(src, x, y, r.width, r.height); } catch (e) {} }
+      }
+      ctx.restore();
+    });
+  }
+
+  // The scale bar and the credit line are redrawn rather than copied: they
+  // live outside the map panes, and the credits have to travel with the
+  // picture wherever it ends up.
+  function dlFurniture(ctx, W, H) {
+    var bottom = H;
+    var at = document.querySelector(".leaflet-control-attribution");
+    // Leaflet's own prefix is not a credit anyone needs in a picture; the
+    // data and tile credits are, and they stay.
+    var credit = at ? at.textContent.replace(/\s+/g, " ")
+                        .replace(/^\s*Leaflet\s*\|\s*/i, "").trim() : "";
+    if (credit) {
+      ctx.save();
+      ctx.font = "10.5px " + DL_UI_FONT;
+      var tw = ctx.measureText(credit).width;
+      if (tw + 12 > W) {
+        credit = "Esri, OpenStreetMap | Precincts: Denver Open Data | " +
+                 "Voters: CO Secretary of State";
+        tw = ctx.measureText(credit).width;
+      }
+      if (tw + 12 > W) { credit = "Esri, OpenStreetMap, Denver Open Data"; }
+      tw = ctx.measureText(credit).width;
+      var ch = 16;
+      ctx.fillStyle = "rgba(255,255,255,.82)";
+      ctx.fillRect(W - tw - 9, H - ch, tw + 9, ch);
+      ctx.fillStyle = "#58626d";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillText(credit, W - 5, H - ch / 2 + 0.5);
+      ctx.restore();
+      bottom = H - ch;
+    }
+    var sb = document.querySelector(".leaflet-control-scale-line");
+    if (sb) {
+      var sr = sb.getBoundingClientRect();
+      var w = Math.max(24, Math.round(sr.width));
+      var label = sb.textContent.trim();
+      var bh = 8, by = bottom - 7 - bh, bx = W - 10 - w;
+      ctx.save();
+      ctx.font = "600 11px " + DL_UI_FONT;
+      var lw = ctx.measureText(label).width;
+      ctx.fillStyle = "rgba(255,255,255,.82)";
+      ctx.fillRect(bx - 5, by - 15, Math.max(w, lw + 6) + 10, bh + 20);
+      ctx.strokeStyle = "#3d4753";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(bx + 0.75, by);
+      ctx.lineTo(bx + 0.75, by + bh);
+      ctx.lineTo(bx + w - 0.75, by + bh);
+      ctx.lineTo(bx + w - 0.75, by);
+      ctx.stroke();
+      ctx.fillStyle = "#3d4753";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(label, bx + 1, by - 3);
+      ctx.restore();
+      bottom = by - 20;
+    }
+    dlLegend(ctx, W, bottom);
+  }
+
+  // The "Showing" card is the key to the colours, so a picture that leaves
+  // the page without it is a map of unlabelled lines. It is redrawn from the
+  // same rows rather than screenshotted, so it stays sharp at every size.
+  function dlLegend(ctx, W, bottom) {
+    var card = document.querySelector(".active-card");
+    if (!card || card.hidden || !card.offsetParent) return;
+    var rows = card.querySelectorAll(".r");
+    if (!rows.length) return;
+    var head = card.querySelector(".h");
+    var title = head ? head.textContent.trim().toUpperCase() : "SHOWING";
+    var padX = 8, padT = 6, padB = 7, sw = 11, gap = 6, rowH = 17;
+    var items = [];
+    ctx.save();
+    ctx.font = "11.5px " + DL_UI_FONT;
+    var textW = 0;
+    Array.prototype.forEach.call(rows, function (r) {
+      var mark = r.querySelector("i");
+      var cs = mark ? getComputedStyle(mark) : null;
+      var line = mark && mark.classList.contains("line");
+      items.push({
+        text: r.textContent.trim(),
+        line: line,
+        color: cs ? (line ? cs.borderTopColor : cs.backgroundColor) : "#888"
+      });
+      textW = Math.max(textW, ctx.measureText(r.textContent.trim()).width);
+    });
+    ctx.font = "700 9.5px " + DL_UI_FONT;
+    var headW = ctx.measureText(title).width + 8;
+    var boxW = Math.ceil(Math.max(textW + sw + gap, headW) + padX * 2);
+    var boxH = Math.ceil(padT + 13 + items.length * rowH + padB);
+    var bx = W - 10 - boxW, by = bottom - boxH;
+    if (by < 8) return;
+    ctx.fillStyle = "rgba(255,255,255,.92)";
+    ctx.fillRect(bx, by, boxW, boxH);
+    ctx.strokeStyle = "rgba(0,0,0,.09)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(bx + 0.5, by + 0.5, boxW - 1, boxH - 1);
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#98a2ae";
+    if ("letterSpacing" in ctx) { try { ctx.letterSpacing = "0.6px"; } catch (e) {} }
+    ctx.fillText(title, bx + padX, by + padT + 6);
+    if ("letterSpacing" in ctx) { try { ctx.letterSpacing = "0px"; } catch (e) {} }
+    ctx.font = "11.5px " + DL_UI_FONT;
+    items.forEach(function (it, i) {
+      var cy = by + padT + 13 + i * rowH + rowH / 2;
+      if (it.line) {
+        ctx.strokeStyle = it.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(bx + padX, cy);
+        ctx.lineTo(bx + padX + sw, cy);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = it.color;
+        ctx.fillRect(bx + padX, cy - sw / 2, sw, sw);
+        ctx.strokeStyle = "rgba(0,0,0,.18)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(bx + padX + 0.5, cy - sw / 2 + 0.5, sw - 1, sw - 1);
+      }
+      ctx.fillStyle = "#3d4753";
+      ctx.fillText(it.text, bx + padX + sw + gap, cy);
+    });
+    ctx.restore();
+  }
+
+  function dlSize() {
+    var r = map.getContainer().getBoundingClientRect();
+    return { w: Math.max(1, Math.round(r.width)), h: Math.max(1, Math.round(r.height)) };
+  }
+
+  function dlRender(scale, mime, quality, done, fail) {
+    var mapEl = map.getContainer();
+    var mr = mapEl.getBoundingClientRect();
+    var W = Math.max(1, Math.round(mr.width));
+    var H = Math.max(1, Math.round(mr.height));
+    var cv = document.createElement("canvas");
+    cv.width = Math.round(W * scale);
+    cv.height = Math.round(H * scale);
+    var ctx = cv.getContext("2d");
+    if (!ctx) { fail("This browser cannot draw the image."); return; }
+    ctx.scale(scale, scale);
+    // White underneath, so "No basemap" and JPG both come out clean rather
+    // than transparent or black.
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, W, H);
+
+    var jobs = dlCollect();
+    dlPreload(jobs, function (stat) {
+      var missing = 0;
+      jobs.forEach(function (j) {
+        if (j.kind === "img" && (!j.img || j.img.failed)) missing++;
+      });
+      try {
+        dlPaint(ctx, jobs, mr);
+        dlFurniture(ctx, W, H);
+      } catch (e) {
+        fail("Something went wrong drawing the map.");
+        return;
+      }
+      var give = function (blob) {
+        if (!blob) {
+          fail("The image was too big for this browser. Try a smaller size.");
+          return;
+        }
+        done(blob, { w: cv.width, h: cv.height, missing: missing, tiles: stat.tiles });
+      };
+      try {
+        if (cv.toBlob) { cv.toBlob(give, mime, quality); }
+        else { give(null); }
+      } catch (e) {
+        fail("The image could not be saved from this browser.");
+      }
+    });
+  }
+
+  function dlStamp() {
+    var d = new Date();
+    function p(n) { return (n < 10 ? "0" : "") + n; }
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+
+  function dlSave(blob, ext) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "denver-precincts-" + dlStamp() + "." + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+  }
+
+  function dlApprox(w, h, jpg) {
+    // rough, and labelled as rough: a map PNG runs about 0.5 bytes a pixel,
+    // a JPG at this quality about a tenth of that
+    var bytes = w * h * (jpg ? 0.06 : 0.5);
+    return bytes > 900000 ? (bytes / 1048576).toFixed(1) + " MB"
+                          : Math.round(bytes / 1024) + " KB";
+  }
+
+  var imgModal = document.getElementById("imgModal");
+  var imgSizes = document.getElementById("imgSizes");
+  var imgGo = document.getElementById("imgGo");
+  var imgHint = document.getElementById("imgHint");
+  var dlBusy = false;
+
+  function dlFormat() {
+    var el = imgModal && imgModal.querySelector('input[name="imgfmt"]:checked');
+    return el ? el.value : "png";
+  }
+  function dlChosen() {
+    var el = imgModal && imgModal.querySelector('input[name="imgsize"]:checked');
+    var key = el ? el.value : "m";
+    var out = DL_SCALES[1];
+    DL_SCALES.forEach(function (s) { if (s.key === key) out = s; });
+    return out;
+  }
+
+  function dlBuildSizes() {
+    if (!imgSizes) return;
+    var s = dlSize(), jpg = dlFormat() === "jpg";
+    var prev = imgModal.querySelector('input[name="imgsize"]:checked');
+    var keep = prev ? prev.value : "m";
+    imgSizes.innerHTML = "";
+    DL_SCALES.forEach(function (opt) {
+      var w = Math.round(s.w * opt.scale), h = Math.round(s.h * opt.scale);
+      var tooBig = w * h > DL_MAX_PIXELS;
+      var row = document.createElement("label");
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = "imgsize";
+      input.value = opt.key;
+      input.checked = opt.key === keep && !tooBig;
+      input.disabled = tooBig;
+      input.addEventListener("change", dlSyncHint);
+      row.appendChild(input);
+      var sw = document.createElement("span");
+      sw.className = "nosw";
+      row.appendChild(sw);
+      var txt = document.createElement("span");
+      txt.className = "dlopt";
+      txt.innerHTML = "<b>" + opt.label + "</b> " + w + " &times; " + h + " px" +
+        '<i class="dlnote">' + (tooBig ? "too large for this browser"
+                                       : opt.note + " · about " +
+                                         dlApprox(w, h, jpg)) + "</i>";
+      row.appendChild(txt);
+      if (tooBig) row.className = "off";
+      imgSizes.appendChild(row);
+    });
+    if (!imgModal.querySelector('input[name="imgsize"]:checked')) {
+      var first = imgModal.querySelector('input[name="imgsize"]:not(:disabled)');
+      if (first) first.checked = true;
+    }
+  }
+
+  function dlSyncHint() {
+    if (!imgHint || dlBusy) return;
+    imgHint.textContent =
+      "The picture is the map exactly as you have it — every layer, " +
+      "label and colour showing right now — without the controls panel. " +
+      "Map credits are printed into the corner.";
+    imgHint.className = "hint";
+  }
+
+  function openImgModal() {
+    if (!imgModal) return;
+    var what = document.getElementById("imgWhat");
+    if (what) what.textContent = describeState();
+    dlBuildSizes();
+    dlBusy = false;
+    if (imgGo) { imgGo.disabled = false; imgGo.textContent = "Download"; }
+    dlSyncHint();
+    track("image_open", { what: describeState() });
+    imgModal.hidden = false;
+    if (imgGo) imgGo.focus();
+  }
+  function closeImgModal() { if (imgModal) imgModal.hidden = true; }
+
+  function dlRun() {
+    if (dlBusy) return;
+    var opt = dlChosen();
+    var jpg = dlFormat() === "jpg";
+    dlBusy = true;
+    imgGo.disabled = true;
+    imgGo.textContent = "Building…";
+    imgHint.className = "hint";
+    imgHint.textContent = "Redrawing the map at " + opt.scale +
+      "× and fetching the basemap tiles. A second or two.";
+    // let the button repaint before the canvas work starts
+    setTimeout(function () {
+      dlRender(opt.scale, jpg ? "image/jpeg" : "image/png", jpg ? 0.92 : undefined,
+        function (blob, info) {
+          dlSave(blob, jpg ? "jpg" : "png");
+          dlBusy = false;
+          imgGo.disabled = false;
+          imgGo.textContent = "Download";
+          imgHint.className = "hint ok";
+          imgHint.textContent = "Saved " + info.w + " × " + info.h +
+            " px, " + Math.round(blob.size / 1024) + " KB." +
+            (info.missing ? " " + info.missing + " of " + info.tiles +
+             " basemap tiles could not be included, so parts of the ground " +
+             "are blank." : "");
+          track("image_download", { format: jpg ? "jpg" : "png",
+                                    size: opt.key, scale: opt.scale });
+        },
+        function (msg) {
+          dlBusy = false;
+          imgGo.disabled = false;
+          imgGo.textContent = "Download";
+          imgHint.className = "hint bad";
+          imgHint.textContent = msg;
+        });
+    }, 30);
+  }
+
+  // A view-only link has no panel, so the download lives on the map itself
+  // there -- a small button under the zoom control.
+  function addDownloadControl() {
+    if (!shown("actions", "download")) return;
+    var Ctl = L.Control.extend({
+      onAdd: function () {
+        var wrap = L.DomUtil.create("div", "leaflet-bar dlbar");
+        var a = L.DomUtil.create("a", "dlbtn", wrap);
+        a.href = "#";
+        a.setAttribute("role", "button");
+        a.title = "Download this view as an image";
+        a.setAttribute("aria-label", "Download this view as an image");
+        a.innerHTML = "&#8615;";
+        L.DomEvent.disableClickPropagation(wrap);
+        L.DomEvent.on(a, "click", function (e) {
+          L.DomEvent.preventDefault(e);
+          openImgModal();
+        });
+        return wrap;
+      }
+    });
+    new Ctl({ position: "topright" }).addTo(map);
+  }
+
+  if (imgModal) {
+    var imgBtn = document.getElementById("imgBtn");
+    if (imgBtn) imgBtn.addEventListener("click", openImgModal);
+    document.getElementById("imgClose").addEventListener("click", closeImgModal);
+    imgGo.addEventListener("click", dlRun);
+    imgModal.addEventListener("click", function (e) {
+      if (e.target === imgModal) closeImgModal();
+    });
+    Array.prototype.forEach.call(
+      imgModal.querySelectorAll('input[name="imgfmt"]'),
+      function (r) { r.addEventListener("change", function () {
+        dlBuildSizes(); dlSyncHint();
+      }); });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !imgModal.hidden) closeImgModal();
+    });
+  }
 
   document.getElementById("share").addEventListener("click", openShare);
   document.getElementById("shareClose").addEventListener("click", closeShare);

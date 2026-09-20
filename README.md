@@ -197,6 +197,22 @@ Events: `page_view`, `layer_view` (which shading was chosen),
 `boundary_toggle`, `search`, `share_open`, `image_open`, `image_download`
 (format and size only).
 
+## Labels on the map
+
+A precinct shows its number as soon as its own shape has room for it, not when
+the map crosses one zoom level. Green Valley Ranch and Montbello are large
+enough to label at zoom 12; the few-block precincts downtown wait until 14.
+Everything switching on together meant the whole county stayed blank until the
+smallest precinct fit, which is two zooms later than most of the map needed.
+
+Room is measured against the precinct's bounding box, which overstates it for
+an L-shaped precinct. That is the forgiving direction: the numbers carry a
+white halo, so one that is slightly crowded still reads.
+
+The hover chip that names a precinct is suppressed only once essentially every
+precinct is carrying its own number, so it keeps working through the zooms
+where only the big ones are labelled.
+
 ## Share links
 
 `/s/<code>` carries the whole view. The code is `~`-separated: a base36 bitmask

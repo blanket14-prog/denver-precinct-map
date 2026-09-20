@@ -903,6 +903,23 @@
     features.forEach(function (f) {
       if (f.layer !== picked) f.layer.setStyle(styleFor(f.props));
     });
+    // which precincts are lit has just changed, and the numbers follow it
+    syncLabels();
+  }
+
+  // A number belongs on a precinct that is part of what the map is showing.
+  // Dimmed precincts are context for the ones in the filter, and a precinct a
+  // contest never covered has nothing to say, so neither gets labelled. This
+  // mirrors styleFor: anything it sends to DIMMED or HIDDEN stays unlabelled.
+  function precinctLit(props) {
+    if (demo) return true;          // here the precincts are only a grid
+    if (returnYear) {
+      var cell = returnYear.precincts[props.precinct];
+      return !!cell && !belowCut(cell);
+    }
+    if (contest) return !!contest.precincts[props.precinct];
+    if (!filterKey) return true;
+    return props[filterKey] === filterVal;
   }
 
   var byNumber = {};
@@ -1927,7 +1944,14 @@
   // 301 precinct numbers at county zoom is unreadable mush, and so is 78
   // neighbourhood names, so both only appear once there is room to place
   // them. Each has a checkbox of its own on top of that.
-  var PRECINCT_LABEL_ZOOM = 14;
+  // Each precinct shows its number as soon as its own shape has room for it,
+  // rather than all 301 switching on together at one zoom. Green Valley Ranch
+  // and Montbello are big enough to label two zooms before the downtown
+  // precincts that are a few blocks across, and waiting for the smallest one
+  // meant the whole county stayed blank until then.
+  var PRECINCT_LABEL_ZOOM = 12;   // floor: never at the county view
+  var PRECINCT_LABEL_PX = 40;     // room a number wants, across
+  var PRECINCT_LABEL_PY = 20;     // and down
   var showPrecinctLabels = true;
   var showDistrictLabels = true;
   var precinctLabels = L.layerGroup([]);
@@ -1936,13 +1960,28 @@
     features.forEach(function (f) {
       var p = f.props;
       if (!p.label) return;
-      precinctLabels.addLayer(L.marker([p.label[1], p.label[0]], {
+      var m = L.marker([p.label[1], p.label[0]], {
         icon: districtLabel(p.precinct, "#1d5687", true),
         pane: "districtLabels",
         interactive: false,
         keyboard: false
-      }));
+      });
+      // measured once, from the precinct the number belongs to
+      try { m._pb = f.layer.getBounds(); } catch (e) { m._pb = null; }
+      m._p = p;
+      precinctLabels.addLayer(m);
     });
+  }
+
+  // The bounding box overstates room for an L-shaped precinct, which is the
+  // forgiving direction: the labels carry a white halo, so a number that is
+  // slightly crowded still reads.
+  function precinctFits(m, zoom) {
+    if (!m._pb) return true;
+    var nw = map.project(m._pb.getNorthWest(), zoom);
+    var se = map.project(m._pb.getSouthEast(), zoom);
+    return (se.x - nw.x) >= PRECINCT_LABEL_PX &&
+           (se.y - nw.y) >= PRECINCT_LABEL_PY;
   }
 
   function syncLabels() {
@@ -1957,15 +1996,27 @@
       });
     });
 
+    var zoom = map.getZoom();
     var wantPrecincts = showPrecinctLabels &&
-                        map.getZoom() >= PRECINCT_LABEL_ZOOM &&
+                        zoom >= PRECINCT_LABEL_ZOOM &&
                         map.hasLayer(layers);
     if (wantPrecincts && !map.hasLayer(precinctLabels)) {
       map.addLayer(precinctLabels);
     } else if (!wantPrecincts && map.hasLayer(precinctLabels)) {
       map.removeLayer(precinctLabels);
     }
-    map.getContainer().classList.toggle("pnum-on", wantPrecincts);
+    if (wantPrecincts) {
+      precinctLabels.eachLayer(function (m) {
+        var el = m.getElement && m.getElement();
+        if (!el) return;
+        var show = precinctLit(m._p) && precinctFits(m, zoom);
+        el.style.display = show ? "" : "none";
+      });
+    }
+    // The hover chip is only redundant once essentially every precinct is
+    // carrying its own number, so it keeps working through the zooms where
+    // only the big ones are labelled.
+    map.getContainer().classList.toggle("pnum-on", wantPrecincts && zoom >= 14);
   }
 
   // A share link can now turn these off, so the checkboxes have to be able

@@ -1,0 +1,30 @@
+{
+ "_atlarge": {
+  "loInf": 0.43,
+  "hiInf": 1.61
+ },
+ "senate": {
+  "loInf": 0.47,
+  "hiInf": 1.52
+ },
+ "dps5": {
+  "loInf": 0.49,
+  "hiInf": 1.44
+ },
+ "k7": {
+  "loInf": 0.53,
+  "hiInf": 1.41
+ },
+ "house": {
+  "loInf": 0.57,
+  "hiInf": 1.35
+ },
+ "cc11": {
+  "loInf": 0.57,
+  "hiInf": 1.41
+ },
+ "k9": {
+  "loInf": 0.57,
+  "hiInf": 1.36
+ }
+}

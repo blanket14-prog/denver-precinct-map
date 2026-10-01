@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colorado House Districts</title>
+{% if ga_id %}
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+  gtag("config", "{{ ga_id }}", { send_page_view: false, anonymize_ip: true });
+  gtag("event", "page_view", {
+    page_path: {{ ga_path|tojson }},
+    page_title: document.title
+  });
+</script>
+{% endif %}
+<link rel="stylesheet" href="{{ url_for('static', filename='leaflet/leaflet.css') }}">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232f6fa8'/%3E%3Cpath d='M6 20l7-11 6 8 3-4 4 7z' fill='%23cfe2f0'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ink:#1c2430; --muted:#6b7684; --line:#dde3ea; --panel:#ffffff;
+    --accent:#2f6fa8; --accent-soft:#4a90c4; --wash:#f2f6fa;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+       Helvetica,Arial,sans-serif;color:var(--ink)}
+  #map{position:absolute;inset:0;background:#eef1f4}
+
+  .panel{
+    position:absolute;top:14px;left:14px;z-index:1000;width:272px;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 6px 24px rgba(20,30,45,.12);
+  }
+  .panel h1{margin:0;padding:13px 15px 11px;font-size:15px;font-weight:650;
+    letter-spacing:.1px;position:relative}
+  .panel h1 span{display:block;font-size:11.5px;font-weight:450;
+    color:var(--muted);margin-top:2px;letter-spacing:.2px}
+  .panel .hlinks{display:flex;align-items:center;gap:11px;margin-top:8px;
+    font-weight:450}
+  .panel .link{padding:0 2px;font:inherit;font-size:12.5px;font-weight:500;
+    color:var(--accent);background:none;border:0;cursor:pointer;
+    text-decoration:underline;text-underline-offset:2px}
+  .panel .link:hover{color:#27608f}
+  .panel .note{padding:0 15px 13px;font-size:12.5px;color:var(--muted)}
+  .panel .find{display:flex;gap:7px;padding:0 15px 13px}
+  .panel .find input{flex:1;min-width:0;padding:8px 10px;font:inherit;
+    font-size:13px;color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;background:#fbfcfd}
+  .panel .find input:focus{outline:none;border-color:var(--accent-soft);
+    box-shadow:0 0 0 3px rgba(74,144,196,.15)}
+  .panel .find button{padding:8px 13px;font:inherit;font-size:13px;
+    font-weight:550;color:#fff;background:var(--accent);border:0;
+    border-radius:6px;cursor:pointer}
+  .panel .find button:hover{background:#27608f}
+
+  .detail{
+    position:absolute;left:14px;bottom:14px;z-index:1000;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    box-shadow:0 6px 24px rgba(20,30,45,.12);
+    padding:11px 40px 11px 14px;display:flex;align-items:baseline;gap:14px;
+  }
+  .detail[hidden]{display:none}
+  .detail .num{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums}
+  .detail .lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted)}
+  .detail .stat{font-size:12.5px;color:var(--muted);
+    font-variant-numeric:tabular-nums}
+  .detail button{position:absolute;top:9px;right:9px;width:24px;height:24px;
+    padding:0;font-size:16px;line-height:1;color:var(--muted);background:#fff;
+    border:1px solid var(--line);border-radius:6px;cursor:pointer}
+  .detail button:hover{border-color:var(--accent-soft);color:var(--accent)}
+
+  .dnum{
+    font:700 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+         Helvetica,Arial,sans-serif;
+    color:#13406b;white-space:nowrap;
+    -webkit-text-stroke:3px rgba(255,255,255,.92);paint-order:stroke fill;
+  }
+  .verbadge{background:rgba(255,255,255,.85);border-radius:3px;padding:1px 6px;
+    font-size:10.5px;line-height:1.5;color:#7a828c;
+    font-variant-numeric:tabular-nums;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
+  .leaflet-container{font:inherit}
+  .leaflet-control-zoom{border-radius:8px;border:1px solid var(--line);
+    box-shadow:0 4px 16px rgba(20,30,45,.12);overflow:hidden}
+
+  @media (max-width:700px){
+    .panel{width:auto;left:10px;right:64px;top:10px}
+    .detail{left:10px;right:10px;bottom:10px}
+  }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1>
+    Colorado House Districts
+    <span id="count">Loading districts&hellip;</span>
+    <span class="hlinks">
+      <a class="link" href="/">Denver precinct map</a>
+      <button type="button" id="reset" class="link">Reset view</button>
+    </span>
+  </h1>
+  <form class="find" id="findForm" autocomplete="off">
+    <input id="q" type="text" inputmode="numeric" placeholder="District number, 1 to 65"
+           aria-label="House district number">
+    <button type="submit">Go</button>
+  </form>
+  <div class="note" id="note">Click any district to zoom in and see its number.</div>
+</div>
+
+<div class="detail" id="detail" hidden>
+  <button type="button" id="detailClose" aria-label="Close">&times;</button>
+  <div>
+    <div class="lbl">House District</div>
+    <div class="num" id="dNum"></div>
+  </div>
+  <div class="stat" id="dArea"></div>
+</div>
+
+<script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
+<script>
+(function () {
+  "use strict";
+
+  function track(name, params) {
+    if (typeof gtag !== "function") return;
+    try { gtag("event", name, params || {}); } catch (e) {}
+  }
+
+  var map = L.map("map", {
+    center: [39.0, -105.55], zoom: 7, minZoom: 6, maxZoom: 14,
+    zoomControl: false, preferCanvas: true,
+    zoomSnap: .5, zoomDelta: .5
+  });
+  L.control.zoom({ position: "topright" }).addTo(map);
+  L.control.scale({ imperial: true, metric: false, position: "bottomright" }).addTo(map);
+
+  L.tileLayer(
+    "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
+      "World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+    { attribution:
+        'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
+        'Districts: U.S. Census Bureau TIGER/Line 2024',
+      maxNativeZoom: 16, maxZoom: 14 }
+  ).addTo(map);
+
+  var VersionBadge = L.Control.extend({
+    onAdd: function () {
+      var el = L.DomUtil.create("div", "verbadge");
+      el.textContent = "v{{ version }}";
+      return el;
+    }
+  });
+  new VersionBadge({ position: "bottomright" }).addTo(map);
+
+  // Numbers go in their own pane above the fills, so a selected district
+  // brought to the front can never cover them.
+  map.createPane("dlabels");
+  map.getPane("dlabels").style.zIndex = 460;
+  map.getPane("dlabels").style.pointerEvents = "none";
+
+  // Five hues cycled by district number. With 65 districts a unique colour
+  // each would be indistinguishable mud; what matters is that neighbours
+  // differ, and the number is printed on every one anyway.
+  var FILL = ["#9ec6e4", "#a9d8c4", "#f0cf9a", "#c9b8e0", "#e9b4ae"];
+  var BASE = function (d) {
+    return { color: "#2f6fa8", weight: 1, opacity: .85,
+             fillColor: FILL[d.d % FILL.length], fillOpacity: .62 };
+  };
+  var HOVER = { color: "#13406b", weight: 2.5, opacity: 1, fillOpacity: .80 };
+  var PICKED = { color: "#13406b", weight: 3.5, opacity: 1,
+                 fillColor: "#2f6fa8", fillOpacity: .55 };
+
+  var layers = L.geoJSON(null, { style: function (f) { return BASE(f.properties); } });
+  var labels = L.layerGroup([]);
+  var labelMarks = [];
+  var byNum = {}, picked = null, count = 0;
+
+  var note = document.getElementById("note");
+  var detail = document.getElementById("detail");
+
+  function say(msg) { note.textContent = msg; }
+
+  function show(layer) {
+    if (picked && picked !== layer) picked.setStyle(BASE(picked.feature.properties));
+    picked = layer;
+    layer.setStyle(PICKED);
+    layer.bringToFront();
+    var p = layer.feature.properties;
+    document.getElementById("dNum").textContent = p.d;
+    document.getElementById("dArea").textContent =
+      p.area.toLocaleString() + " square miles";
+    detail.hidden = false;
+    map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: .7 });
+    track("district_view", { district: p.d });
+  }
+
+  function clearPick() {
+    if (picked) picked.setStyle(BASE(picked.feature.properties));
+    picked = null;
+    detail.hidden = true;
+  }
+  document.getElementById("detailClose").addEventListener("click", clearPick);
+
+  fetch("{{ house_url }}")
+    .then(function (res) {
+      if (!res.ok) throw new Error("HTTP " + res.status + " loading house.geojson");
+      return res.json();
+    })
+    .then(function (geo) {
+      geo.features.forEach(function (f) {
+        var layer = L.geoJSON(f, {
+          style: BASE(f.properties),
+          onEachFeature: function (_, lyr) {
+            lyr.bindTooltip("House District " + f.properties.d,
+                            { sticky: true, direction: "top", opacity: .9 });
+            lyr.on({
+              mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
+              mouseout:  function () { if (lyr !== picked) lyr.setStyle(BASE(f.properties)); },
+              click: function () {
+                if (lyr === picked) { clearPick(); say("Click any district to zoom in and see its number."); return; }
+                show(lyr);
+              }
+            });
+          }
+        });
+        layer.addTo(layers);
+        byNum[f.properties.d] = layer.getLayers()[0];
+        count++;
+
+        var mark = L.marker([f.properties.label[1], f.properties.label[0]], {
+          icon: L.divIcon({ className: "", iconSize: null,
+                            html: '<span class="dnum">' + f.properties.d + "</span>" }),
+          pane: "dlabels", interactive: false, keyboard: false
+        });
+        labels.addLayer(mark);
+        labelMarks.push({ m: mark,
+                          ll: L.latLng(f.properties.label[1], f.properties.label[0]),
+                          area: f.properties.area,
+                          digits: String(f.properties.d).length });
+      });
+
+      layers.addTo(map);
+      labels.addTo(map);
+      map.fitBounds(layers.getBounds(), { padding: [20, 20] });
+      home = map.getBounds();
+      document.getElementById("count").textContent =
+        count + " districts · 2024 boundaries";
+      syncLabels();
+    })
+    .catch(function (err) {
+      document.getElementById("count").textContent = "Could not load districts";
+      say(String(err.message || err));
+    });
+
+  var home = null;
+
+  // Statewide, the thirty-odd metro districts are a few pixels across and
+  // their numbers land on top of one another. Rather than hide every number
+  // until some arbitrary zoom, each is shown only if it has room, largest
+  // district first. The rural seats stay labelled at the opening view and the
+  // Front Range resolves as you zoom into it.
+  function syncLabels() {
+    if (!labelMarks.length) return;
+    var size = map.getSize(), placed = [];
+    labelMarks.slice()
+      .sort(function (a, b) { return b.area - a.area; })
+      .forEach(function (r) {
+        var el = r.m.getElement && r.m.getElement();
+        if (!el) return;
+        var p = map.latLngToContainerPoint(r.ll);
+        var hw = 6 + r.digits * 4.5, hh = 9;
+        var ok = p.x > -30 && p.y > -30 && p.x < size.x + 30 && p.y < size.y + 30;
+        for (var i = 0; ok && i < placed.length; i++) {
+          var q = placed[i];
+          if (Math.abs(p.x - q.x) < hw + q.hw && Math.abs(p.y - q.y) < hh + q.hh) ok = false;
+        }
+        el.style.display = ok ? "" : "none";
+        if (ok) placed.push({ x: p.x, y: p.y, hw: hw, hh: hh });
+      });
+  }
+  map.on("zoomend moveend", syncLabels);
+
+  document.getElementById("findForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var n = parseInt(document.getElementById("q").value, 10);
+    if (isNaN(n) || n < 1 || n > 65) { say("Enter a district number from 1 to 65."); return; }
+    var lyr = byNum[n];
+    if (!lyr) { say("District " + n + " is not in the data."); return; }
+    show(lyr);
+    say("Showing House District " + n + ".");
+    track("district_search", { district: n });
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    clearPick();
+    if (home) map.flyToBounds(home, { padding: [20, 20], duration: .7 });
+    say("Click any district to zoom in and see its number.");
+  });
+})();
+</script>
+</body>
+</html>

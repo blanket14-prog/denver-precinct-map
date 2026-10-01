@@ -39,10 +39,11 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "37"
+APP_VERSION = "38"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
-              "returns.json", "tracts.geojson", "demographics.json")
+              "returns.json", "tracts.geojson", "demographics.json",
+              "house.geojson")
 
 CONFIG_FILE = "config.json"
 _config_cache = {}
@@ -184,6 +185,25 @@ def public_config():
                  "basemap", "boundaries", "labels"):
         out["sections"][name] = section_on(name)
     return out
+
+
+@app.route("/house")
+def house():
+    """All 65 Colorado House districts, statewide.
+
+    A separate page rather than another layer on the Denver map: the Denver
+    map is built around 301 precincts in one county, and nothing it does
+    (precinct search, returns, demographics) has a statewide equivalent.
+    """
+    resp = app.make_response(render_template(
+        "house.html",
+        house_url="/data/house.geojson?v=" + geojson_version("house.geojson"),
+        version=APP_VERSION,
+        ga_id=GA_ID,
+        ga_path=request.path,
+    ))
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.route("/admin")

@@ -197,6 +197,28 @@ Events: `page_view`, `layer_view` (which shading was chosen),
 `boundary_toggle`, `search`, `share_open`, `image_open`, `image_download`
 (format and size only).
 
+## Statewide House districts
+
+`/house` is a second map: all 65 Colorado House districts, no precincts. The
+Denver map links to it from the panel header and it links back.
+
+It is a separate page rather than another layer because nothing the Denver map
+does has a statewide equivalent. Precinct search, ballot returns, demographics
+and the district filters are all built around 301 precincts in one county.
+
+`data/house.geojson` is built from the Census TIGER/Line 2024 lower-chamber
+file by `tools/build_house.py`, simplified to 120 m and trimmed to five decimal
+places, which takes a 2.5 MB shapefile down to about 200 KB. That is far more
+than a statewide view can draw, and the saving is what keeps the page quick on
+the free tier.
+
+District numbers are placed by collision, largest district first, rather than
+appearing all at once past a fixed zoom. Statewide, the thirty-odd Front Range
+seats are a few pixels across and their numbers would sit on top of each other;
+this way the rural seats are labelled at the opening view and the metro ones
+resolve as you zoom in. Each label point is the polygon's representative point,
+not its centroid, so a crescent-shaped district still gets its number inside it.
+
 ## Zooming
 
 The map moves in half zoom levels. A whole level doubles the scale, which over

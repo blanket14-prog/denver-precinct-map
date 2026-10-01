@@ -197,20 +197,44 @@ Events: `page_view`, `layer_view` (which shading was chosen),
 `boundary_toggle`, `search`, `share_open`, `image_open`, `image_download`
 (format and size only).
 
-## Statewide House districts
+## Statewide legislative districts
 
-`/house` is a second map: all 65 Colorado House districts, no precincts. The
-Denver map links to it from the panel header and it links back.
+`/state` is a second map: all 65 Colorado House districts and all 35 Senate
+districts, no precincts, with a toggle between the two chambers. The Denver map
+links to it from the panel header and it links back. `/house` was the original
+path for one afternoon, before the Senate arrived, and still 301-redirects here
+so any link already sent keeps working.
 
 It is a separate page rather than another layer because nothing the Denver map
 does has a statewide equivalent. Precinct search, ballot returns, demographics
 and the district filters are all built around 301 precincts in one county.
 
-`data/house.geojson` is built from the Census TIGER/Line 2024 lower-chamber
-file by `tools/build_house.py`, simplified to 120 m and trimmed to five decimal
-places, which takes a 2.5 MB shapefile down to about 200 KB. That is far more
-than a statewide view can draw, and the saving is what keeps the page quick on
-the free tier.
+`data/state_house.geojson` and `data/state_senate.geojson` are built from the
+Census TIGER/Line 2024 chamber files by `tools/build_state.py`, simplified to
+5 m with topology preserved and trimmed to six decimal places. The build asserts
+the district numbers are exactly 1-65 and 1-35, so a silently short file cannot
+ship.
+
+5 m is deliberate. An earlier build used 120 m, which looks fine statewide and
+is wrong the moment you zoom in: HD2's southern boundary follows the alley
+stair-steps south of Alameda, and at 120 m those 622 vertices collapsed to 17 —
+a clean diagonal through the middle of blocks, off by 79 m at worst. At 5 m the
+same boundary keeps 47 vertices and is within 4.9 m, which is below the width of
+the line that draws it. The cost is size: 1.1 MB and 750 KB rather than 200 KB.
+`/data/*` is therefore gzipped on the way out when the browser offers to take it
+(`_maybe_gzip`), which brings them to 329 KB and 223 KB — and Denver's own
+precinct file from 306 KB to 56 KB as a side benefit. Each chamber is fetched
+only when first asked for, then kept in memory, so opening the page downloads
+one of the two.
+
+The detail bar names the sitting member for the district, from
+`data/legislators.json` (the Colorado General Assembly directory, retrieved
+2026-10-01). That file is a hand-maintained snapshot, not a feed: it reflects
+members serving now, including one Senate seat filled by vacancy appointment,
+and it will need re-checking after the 2026 general election. The build
+validates it has all 65 and all 35 with no gaps. If the fetch fails the map
+still works and the member line reads as a dash — a name is a nicety, the
+boundaries are the point.
 
 District numbers are placed by collision, largest district first, rather than
 appearing all at once past a fixed zoom. Statewide, the thirty-odd Front Range

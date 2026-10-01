@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Colorado House Districts</title>
+<title>Colorado Legislative Districts</title>
 {% if ga_id %}
 <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
 <script>
@@ -69,6 +69,21 @@
     color:var(--muted)}
   .detail .stat{font-size:12.5px;color:var(--muted);
     font-variant-numeric:tabular-nums}
+  .detail .who{padding-left:14px;border-left:1px solid var(--line)}
+  .detail .name{font-size:15px;font-weight:600;white-space:nowrap}
+  .detail .name .party{font-weight:500;color:var(--muted)}
+  .detail .note{font-size:11px;color:var(--muted);max-width:240px;white-space:normal}
+  .detail .note[hidden]{display:none}
+  .chamber{display:flex;gap:6px;padding:0 15px 12px}
+  .chamber button{flex:1;padding:7px 8px;font:inherit;font-size:12.5px;font-weight:550;
+    color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:6px;
+    cursor:pointer}
+  .chamber button:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .chamber button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  @media (max-width:700px){
+    .detail{flex-wrap:wrap;gap:8px 14px}
+    .detail .who{padding-left:0;border-left:0}
+  }
   .detail button{position:absolute;top:9px;right:9px;width:24px;height:24px;
     padding:0;font-size:16px;line-height:1;color:var(--muted);background:#fff;
     border:1px solid var(--line);border-radius:6px;cursor:pointer}
@@ -98,16 +113,20 @@
 
 <div class="panel">
   <h1>
-    Colorado House Districts
+    Colorado Legislative Districts
     <span id="count">Loading districts&hellip;</span>
     <span class="hlinks">
       <a class="link" href="/">Denver precinct map</a>
       <button type="button" id="reset" class="link">Reset view</button>
     </span>
   </h1>
+  <div class="chamber" id="chamber">
+    <button type="button" data-ch="house" class="on">House &middot; 65</button>
+    <button type="button" data-ch="senate">Senate &middot; 35</button>
+  </div>
   <form class="find" id="findForm" autocomplete="off">
-    <input id="q" type="text" inputmode="numeric" placeholder="District number, 1 to 65"
-           aria-label="House district number">
+    <input id="q" type="text" inputmode="numeric" placeholder="District number"
+           aria-label="District number">
     <button type="submit">Go</button>
   </form>
   <div class="note" id="note">Click any district to zoom in and see its number.</div>
@@ -116,8 +135,13 @@
 <div class="detail" id="detail" hidden>
   <button type="button" id="detailClose" aria-label="Close">&times;</button>
   <div>
-    <div class="lbl">House District</div>
+    <div class="lbl" id="dLbl">House District</div>
     <div class="num" id="dNum"></div>
+  </div>
+  <div class="who">
+    <div class="lbl">Current member</div>
+    <div class="name" id="dWho">&mdash;</div>
+    <div class="note" id="dNote" hidden></div>
   </div>
   <div class="stat" id="dArea"></div>
 </div>
@@ -176,15 +200,49 @@
   var PICKED = { color: "#13406b", weight: 3.5, opacity: 1,
                  fillColor: "#2f6fa8", fillOpacity: .55 };
 
-  var layers = L.geoJSON(null, { style: function (f) { return BASE(f.properties); } });
-  var labels = L.layerGroup([]);
-  var labelMarks = [];
-  var byNum = {}, picked = null, count = 0;
+  var CHAMBERS = {
+    house:  { url: "{{ house_url }}",  label: "House District",
+              short: "House",  n: 65 },
+    senate: { url: "{{ senate_url }}", label: "Senate District",
+              short: "Senate", n: 35 }
+  };
+  var PARTY = { D: "Democrat", R: "Republican", I: "Independent",
+                U: "Unaffiliated", L: "Libertarian" };
+
+  var chamber = "house";
+  var cache = {};              // chamber -> {layers, labels, marks, byNum, home}
+  var members = null;          // {house:{d:[name,party,note?]}, senate:{...}}
+  var layers = null, labels = null, labelMarks = [], byNum = {};
+  var picked = null, home = null;
 
   var note = document.getElementById("note");
   var detail = document.getElementById("detail");
+  var countEl = document.getElementById("count");
 
   function say(msg) { note.textContent = msg; }
+  var IDLE = "Click any district to zoom in and see its number.";
+
+  // ---- detail bar ---------------------------------------------------------
+
+  function fillMember(d) {
+    var who = document.getElementById("dWho");
+    var noteEl = document.getElementById("dNote");
+    var row = members && members[chamber] && members[chamber][String(d)];
+    if (!row) {
+      who.textContent = "—";
+      noteEl.hidden = true;
+      return;
+    }
+    var party = PARTY[row[1]] || row[1];
+    who.textContent = "";
+    who.appendChild(document.createTextNode(row[0] + " "));
+    var tag = document.createElement("span");
+    tag.className = "party";
+    tag.textContent = "(" + party + ")";
+    who.appendChild(tag);
+    if (row[2]) { noteEl.textContent = row[2]; noteEl.hidden = false; }
+    else { noteEl.hidden = true; }
+  }
 
   function show(layer) {
     if (picked && picked !== layer) picked.setStyle(BASE(picked.feature.properties));
@@ -192,12 +250,14 @@
     layer.setStyle(PICKED);
     layer.bringToFront();
     var p = layer.feature.properties;
+    document.getElementById("dLbl").textContent = CHAMBERS[chamber].label;
     document.getElementById("dNum").textContent = p.d;
     document.getElementById("dArea").textContent =
       p.area.toLocaleString() + " square miles";
+    fillMember(p.d);
     detail.hidden = false;
     map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: .7 });
-    track("district_view", { district: p.d });
+    track("district_view", { chamber: chamber, district: p.d });
   }
 
   function clearPick() {
@@ -207,58 +267,7 @@
   }
   document.getElementById("detailClose").addEventListener("click", clearPick);
 
-  fetch("{{ house_url }}")
-    .then(function (res) {
-      if (!res.ok) throw new Error("HTTP " + res.status + " loading house.geojson");
-      return res.json();
-    })
-    .then(function (geo) {
-      geo.features.forEach(function (f) {
-        var layer = L.geoJSON(f, {
-          style: BASE(f.properties),
-          onEachFeature: function (_, lyr) {
-            lyr.bindTooltip("House District " + f.properties.d,
-                            { sticky: true, direction: "top", opacity: .9 });
-            lyr.on({
-              mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
-              mouseout:  function () { if (lyr !== picked) lyr.setStyle(BASE(f.properties)); },
-              click: function () {
-                if (lyr === picked) { clearPick(); say("Click any district to zoom in and see its number."); return; }
-                show(lyr);
-              }
-            });
-          }
-        });
-        layer.addTo(layers);
-        byNum[f.properties.d] = layer.getLayers()[0];
-        count++;
-
-        var mark = L.marker([f.properties.label[1], f.properties.label[0]], {
-          icon: L.divIcon({ className: "", iconSize: null,
-                            html: '<span class="dnum">' + f.properties.d + "</span>" }),
-          pane: "dlabels", interactive: false, keyboard: false
-        });
-        labels.addLayer(mark);
-        labelMarks.push({ m: mark,
-                          ll: L.latLng(f.properties.label[1], f.properties.label[0]),
-                          area: f.properties.area,
-                          digits: String(f.properties.d).length });
-      });
-
-      layers.addTo(map);
-      labels.addTo(map);
-      map.fitBounds(layers.getBounds(), { padding: [20, 20] });
-      home = map.getBounds();
-      document.getElementById("count").textContent =
-        count + " districts · 2024 boundaries";
-      syncLabels();
-    })
-    .catch(function (err) {
-      document.getElementById("count").textContent = "Could not load districts";
-      say(String(err.message || err));
-    });
-
-  var home = null;
+  // ---- label de-confliction ----------------------------------------------
 
   // Statewide, the thirty-odd metro districts are a few pixels across and
   // their numbers land on top of one another. Rather than hide every number
@@ -286,22 +295,166 @@
   }
   map.on("zoomend moveend", syncLabels);
 
+  // ---- building a chamber ------------------------------------------------
+
+  function build(ch, geo) {
+    // featureGroup, not layerGroup: only a featureGroup can report the
+    // combined bounds we need for the opening view and Reset.
+    var g = { layers: L.featureGroup(), labels: L.layerGroup(),
+              marks: [], byNum: {}, count: 0, home: null };
+
+    geo.features.forEach(function (f) {
+      var layer = L.geoJSON(f, {
+        style: BASE(f.properties),
+        onEachFeature: function (_, lyr) {
+          lyr.bindTooltip(CHAMBERS[ch].label + " " + f.properties.d,
+                          { sticky: true, direction: "top", opacity: .9 });
+          lyr.on({
+            mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
+            mouseout:  function () { if (lyr !== picked) lyr.setStyle(BASE(f.properties)); },
+            click: function () {
+              if (lyr === picked) { clearPick(); say(IDLE); return; }
+              show(lyr);
+            }
+          });
+        }
+      });
+      layer.addTo(g.layers);
+      g.byNum[f.properties.d] = layer.getLayers()[0];
+      g.count++;
+
+      var ll = L.latLng(f.properties.label[1], f.properties.label[0]);
+      var mark = L.marker(ll, {
+        icon: L.divIcon({ className: "", iconSize: null,
+                          html: '<span class="dnum">' + f.properties.d + "</span>" }),
+        pane: "dlabels", interactive: false, keyboard: false
+      });
+      g.labels.addLayer(mark);
+      g.marks.push({ m: mark, ll: ll, area: f.properties.area,
+                     digits: String(f.properties.d).length });
+    });
+
+    return g;
+  }
+
+  // ---- loading and switching ---------------------------------------------
+
+  // The member list is small and shared by both chambers, so it is fetched
+  // once alongside whichever chamber is asked for first.
+  var membersReq = null;
+  function getMembers() {
+    if (!membersReq) {
+      membersReq = fetch("{{ members_url }}")
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (j) { members = j; return j; })
+        .catch(function () { return null; });   // names are a nicety, not the map
+    }
+    return membersReq;
+  }
+
+  function detach() {
+    if (layers) map.removeLayer(layers);
+    if (labels) map.removeLayer(labels);
+  }
+
+  function attach(ch, fit) {
+    var g = cache[ch];
+    chamber = ch;
+    layers = g.layers; labels = g.labels;
+    labelMarks = g.marks; byNum = g.byNum; home = g.home;
+    layers.addTo(map);
+    labels.addTo(map);
+    countEl.textContent = g.count + " " + CHAMBERS[ch].short.toLowerCase() +
+                          " districts · 2024 boundaries";
+    document.getElementById("q").placeholder =
+      "District number (1–" + CHAMBERS[ch].n + ")";
+    if (fit && home) map.fitBounds(home, { padding: [20, 20] });
+    syncLabels();
+  }
+
+  function load(ch) {
+    if (cache[ch]) return Promise.resolve(cache[ch]);
+    return Promise.all([
+      fetch(CHAMBERS[ch].url).then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status + " loading " + ch + " districts");
+        return res.json();
+      }),
+      getMembers()
+    ]).then(function (out) {
+      var g = build(ch, out[0]);
+      // Bounds are computed once, while the group is briefly on the map,
+      // because an un-added LayerGroup has no getBounds().
+      g.layers.addTo(map);
+      g.home = g.layers.getBounds();
+      map.removeLayer(g.layers);
+      cache[ch] = g;
+      return g;
+    });
+  }
+
+  var buttons = Array.prototype.slice.call(
+    document.querySelectorAll("#chamber button"));
+
+  function markButtons(ch) {
+    buttons.forEach(function (b) {
+      var on = b.getAttribute("data-ch") === ch;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+
+  var switching = false;
+  function switchTo(ch, fit) {
+    if (switching || ch === chamber && cache[ch]) return;
+    switching = true;
+    markButtons(ch);
+    if (!cache[ch]) say("Loading " + CHAMBERS[ch].short.toLowerCase() + " districts…");
+    load(ch).then(function () {
+      clearPick();
+      detach();
+      attach(ch, fit !== false);
+      say(IDLE);
+      switching = false;
+      track("chamber_switch", { chamber: ch });
+    }).catch(function (err) {
+      markButtons(chamber);
+      countEl.textContent = "Could not load districts";
+      say(String(err.message || err));
+      switching = false;
+    });
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () {
+      switchTo(b.getAttribute("data-ch"), true);
+    });
+  });
+
+  // ---- find --------------------------------------------------------------
+
   document.getElementById("findForm").addEventListener("submit", function (e) {
     e.preventDefault();
+    var max = CHAMBERS[chamber].n;
     var n = parseInt(document.getElementById("q").value, 10);
-    if (isNaN(n) || n < 1 || n > 65) { say("Enter a district number from 1 to 65."); return; }
+    if (isNaN(n) || n < 1 || n > max) {
+      say("Enter a district number from 1 to " + max + ".");
+      return;
+    }
     var lyr = byNum[n];
-    if (!lyr) { say("District " + n + " is not in the data."); return; }
+    if (!lyr) { say(CHAMBERS[chamber].label + " " + n + " is not in the data."); return; }
     show(lyr);
-    say("Showing House District " + n + ".");
-    track("district_search", { district: n });
+    say("Showing " + CHAMBERS[chamber].label + " " + n + ".");
+    track("district_search", { chamber: chamber, district: n });
   });
 
   document.getElementById("reset").addEventListener("click", function () {
     clearPick();
     if (home) map.flyToBounds(home, { padding: [20, 20], duration: .7 });
-    say("Click any district to zoom in and see its number.");
+    say(IDLE);
   });
+
+  markButtons(chamber);
+  switchTo(chamber, true);
 })();
 </script>
 </body>

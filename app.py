@@ -1,4 +1,5 @@
 import hashlib
+import gzip
 import json
 import os
 import re
@@ -8,7 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from flask import Flask, jsonify, render_template, request, send_from_directory
+from flask import Flask, jsonify, render_template, request, send_from_directory, redirect
 
 app = Flask(__name__)
 
@@ -39,11 +40,11 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "38"
+APP_VERSION = "39"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
-              "house.geojson")
+              "state_house.geojson", "state_senate.geojson", "legislators.json")
 
 CONFIG_FILE = "config.json"
 _config_cache = {}
@@ -188,16 +189,25 @@ def public_config():
 
 
 @app.route("/house")
-def house():
-    """All 65 Colorado House districts, statewide.
+def house_legacy():
+    """The statewide map was /house for one afternoon before the Senate
+    arrived and it became /state. Kept so any link already sent still works."""
+    return redirect("/state", code=301)
 
-    A separate page rather than another layer on the Denver map: the Denver
-    map is built around 301 precincts in one county, and nothing it does
-    (precinct search, returns, demographics) has a statewide equivalent.
+
+@app.route("/state")
+def state():
+    """Colorado's legislative districts, statewide: 65 House and 35 Senate.
+
+    A separate page rather than another layer on the Denver map, because
+    nothing the Denver map does (precinct search, ballot returns,
+    demographics) has a statewide equivalent.
     """
     resp = app.make_response(render_template(
-        "house.html",
-        house_url="/data/house.geojson?v=" + geojson_version("house.geojson"),
+        "state.html",
+        house_url="/data/state_house.geojson?v=" + geojson_version("state_house.geojson"),
+        senate_url="/data/state_senate.geojson?v=" + geojson_version("state_senate.geojson"),
+        members_url="/data/legislators.json?v=" + geojson_version("legislators.json"),
         version=APP_VERSION,
         ga_id=GA_ID,
         ga_path=request.path,
@@ -300,6 +310,26 @@ def geojson(name, ext):
     else:
         resp = send_from_directory(DATA_DIR, fname, mimetype=mime)
     resp.headers["Cache-Control"] = "public, max-age=86400"
+    return _maybe_gzip(resp)
+
+
+def _maybe_gzip(resp):
+    """Compress a data payload when the browser will take it.
+
+    These files are nothing but coordinate digits, so they shrink by about
+    70%: the statewide House map goes from 1.1 MB to 330 KB and Denver's
+    precincts from 306 KB to 56 KB. Render's free tier does not do this for
+    us, and on a phone it is the difference between a quick load and a wait.
+    """
+    if "gzip" not in request.headers.get("Accept-Encoding", "").lower():
+        return resp
+    body = resp.get_data()
+    if len(body) < 1024:
+        return resp
+    resp.set_data(gzip.compress(body, 6))
+    resp.headers["Content-Encoding"] = "gzip"
+    resp.headers["Vary"] = "Accept-Encoding"
+    resp.headers["Content-Length"] = str(len(resp.get_data()))
     return resp
 
 

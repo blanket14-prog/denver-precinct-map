@@ -240,8 +240,35 @@ District numbers are placed by collision, largest district first, rather than
 appearing all at once past a fixed zoom. Statewide, the thirty-odd Front Range
 seats are a few pixels across and their numbers would sit on top of each other;
 this way the rural seats are labelled at the opening view and the metro ones
-resolve as you zoom in. Each label point is the polygon's representative point,
-not its centroid, so a crescent-shaped district still gets its number inside it.
+resolve as you zoom in.
+
+Where each number sits inside its district is the pole of inaccessibility: the
+interior point furthest from any edge. A centroid can fall outside a crescent
+or an L entirely, and `representative_point()`, which was used through v39,
+only promises a point somewhere inside -- it takes whatever a horizontal scan
+line hits, which for Senate 33 was 0.22 miles from the boundary, close enough
+to read as belonging to the neighbouring district. Every district's number is
+now at least 0.88 miles clear of its own edge, and multipart districts are
+labelled in their largest part. The build prints the tightest three so a future
+boundary change that pushes a number back against an edge is visible.
+
+### Picking a district, and shading by party
+
+The panel's number box became a dropdown in v41. It lists every district with
+the member's name, so you can find Steph Vigil without knowing she is running
+in 16, and it doubles as the legend for who holds what. It stays in sync with
+the map: clicking a district selects it in the list, and choosing the blank
+first entry clears the selection.
+
+"By party" recolours the districts from the same member file, blue for the
+Democratic seats and red for the Republican, with the chamber's split in the
+legend (43-22 in the House, 23-12 in the Senate as of this writing). The fills
+are deliberately muted. A full-strength red and blue at statewide zoom fights
+the district numbers printed on top of them, and the point is to read the
+pattern, not to shout. A selected district keeps its own colour and gets a
+heavier outline instead, because turning a Republican seat blue on click would
+be worse than useless. If the member file fails to load, party mode shades
+everything grey rather than guessing.
 
 ## Zooming
 

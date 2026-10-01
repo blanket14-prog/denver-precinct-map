@@ -46,16 +46,6 @@
     text-decoration:underline;text-underline-offset:2px}
   .panel .link:hover{color:#27608f}
   .panel .note{padding:0 15px 13px;font-size:12.5px;color:var(--muted)}
-  .panel .find{display:flex;gap:7px;padding:0 15px 13px}
-  .panel .find input{flex:1;min-width:0;padding:8px 10px;font:inherit;
-    font-size:13px;color:var(--ink);border:1px solid var(--line);
-    border-radius:6px;background:#fbfcfd}
-  .panel .find input:focus{outline:none;border-color:var(--accent-soft);
-    box-shadow:0 0 0 3px rgba(74,144,196,.15)}
-  .panel .find button{padding:8px 13px;font:inherit;font-size:13px;
-    font-weight:550;color:#fff;background:var(--accent);border:0;
-    border-radius:6px;cursor:pointer}
-  .panel .find button:hover{background:#27608f}
 
   .detail{
     position:absolute;left:14px;bottom:14px;z-index:1000;
@@ -74,6 +64,17 @@
   .detail .name .party{font-weight:500;color:var(--muted)}
   .detail .note{font-size:11px;color:var(--muted);max-width:240px;white-space:normal}
   .detail .note[hidden]{display:none}
+  .panel .row{padding:0 15px 12px}
+  .panel select{width:100%;padding:8px 10px;font:inherit;font-size:13px;
+    color:var(--ink);border:1px solid var(--line);border-radius:6px;
+    background:#fbfcfd}
+  .panel select:focus{outline:none;border-color:var(--accent-soft);
+    box-shadow:0 0 0 3px rgba(74,144,196,.15)}
+  .legend{display:flex;gap:16px;padding:0 15px 12px;font-size:12px;
+    color:var(--muted)}
+  .legend[hidden]{display:none}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;
+    margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.14)}
   .chamber{display:flex;gap:6px;padding:0 15px 12px}
   .chamber button{flex:1;padding:7px 8px;font:inherit;font-size:12.5px;font-weight:550;
     color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:6px;
@@ -124,11 +125,19 @@
     <button type="button" data-ch="house" class="on">House &middot; 65</button>
     <button type="button" data-ch="senate">Senate &middot; 35</button>
   </div>
-  <form class="find" id="findForm" autocomplete="off">
-    <input id="q" type="text" inputmode="numeric" placeholder="District number"
-           aria-label="District number">
-    <button type="submit">Go</button>
-  </form>
+  <div class="row">
+    <select id="pick" aria-label="Zoom to a district">
+      <option value="">Zoom to a district&hellip;</option>
+    </select>
+  </div>
+  <div class="chamber" id="shade">
+    <button type="button" data-mode="mix" class="on" aria-pressed="true">Mixed colors</button>
+    <button type="button" data-mode="party" aria-pressed="false">By party</button>
+  </div>
+  <div class="legend" id="legend" hidden>
+    <span><i style="background:#5b8fc9"></i><span id="legD">Democrat</span></span>
+    <span><i style="background:#d4786f"></i><span id="legR">Republican</span></span>
+  </div>
   <div class="note" id="note">Click any district to zoom in and see its number.</div>
 </div>
 
@@ -192,13 +201,35 @@
   // each would be indistinguishable mud; what matters is that neighbours
   // differ, and the number is printed on every one anyway.
   var FILL = ["#9ec6e4", "#a9d8c4", "#f0cf9a", "#c9b8e0", "#e9b4ae"];
-  var BASE = function (d) {
+
+  // By-party shading. Muted rather than saturated: at statewide zoom a
+  // full-strength red and blue fight the district numbers printed on top of
+  // them, and the point is to read the pattern, not to shout.
+  var PARTY_FILL = { D: "#5b8fc9", R: "#d4786f",
+                     I: "#bda8d8", U: "#bda8d8", L: "#e6cb8d" };
+  var NO_PARTY = "#cfd6dd";       // member list missing or not yet loaded
+  var shadeMode = "mix";
+
+  function partyOf(d) {
+    var row = members && members[chamber] && members[chamber][String(d)];
+    return row ? row[1] : null;
+  }
+  function fillFor(p) {
+    if (shadeMode !== "party") return FILL[p.d % FILL.length];
+    return PARTY_FILL[partyOf(p.d)] || NO_PARTY;
+  }
+
+  var BASE = function (p) {
     return { color: "#2f6fa8", weight: 1, opacity: .85,
-             fillColor: FILL[d.d % FILL.length], fillOpacity: .62 };
+             fillColor: fillFor(p), fillOpacity: .62 };
   };
   var HOVER = { color: "#13406b", weight: 2.5, opacity: 1, fillOpacity: .80 };
-  var PICKED = { color: "#13406b", weight: 3.5, opacity: 1,
-                 fillColor: "#2f6fa8", fillOpacity: .55 };
+  // A function, not a constant: in party mode a selected district has to keep
+  // its own colour, or picking a Republican seat would turn it blue.
+  function PICKED(p) {
+    return { color: "#13406b", weight: 3.5, opacity: 1,
+             fillColor: fillFor(p), fillOpacity: .85 };
+  }
 
   var CHAMBERS = {
     house:  { url: "{{ house_url }}",  label: "House District",
@@ -247,14 +278,15 @@
   function show(layer) {
     if (picked && picked !== layer) picked.setStyle(BASE(picked.feature.properties));
     picked = layer;
-    layer.setStyle(PICKED);
     layer.bringToFront();
     var p = layer.feature.properties;
+    layer.setStyle(PICKED(p));
     document.getElementById("dLbl").textContent = CHAMBERS[chamber].label;
     document.getElementById("dNum").textContent = p.d;
     document.getElementById("dArea").textContent =
       p.area.toLocaleString() + " square miles";
     fillMember(p.d);
+    document.getElementById("pick").value = String(p.d);
     detail.hidden = false;
     map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: .7 });
     track("district_view", { chamber: chamber, district: p.d });
@@ -263,8 +295,83 @@
   function clearPick() {
     if (picked) picked.setStyle(BASE(picked.feature.properties));
     picked = null;
+    document.getElementById("pick").value = "";
     detail.hidden = true;
   }
+
+  // ---- shading -----------------------------------------------------------
+
+  function restyle() {
+    Object.keys(byNum).forEach(function (d) {
+      var lyr = byNum[d];
+      lyr.setStyle(lyr === picked ? PICKED(lyr.feature.properties)
+                                  : BASE(lyr.feature.properties));
+    });
+  }
+
+  function partyCounts() {
+    var m = (members && members[chamber]) || {}, c = {};
+    Object.keys(m).forEach(function (d) {
+      var k = m[d][1] || "?";
+      c[k] = (c[k] || 0) + 1;
+    });
+    return c;
+  }
+
+  function syncLegend() {
+    var legend = document.getElementById("legend");
+    legend.hidden = shadeMode !== "party";
+    if (legend.hidden) return;
+    var c = partyCounts();
+    document.getElementById("legD").textContent = "Democrat " + (c.D || 0);
+    document.getElementById("legR").textContent = "Republican " + (c.R || 0);
+  }
+
+  var shadeBtns = Array.prototype.slice.call(
+    document.querySelectorAll("#shade button"));
+  shadeBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      shadeMode = b.getAttribute("data-mode");
+      shadeBtns.forEach(function (x) {
+        var on = x === b;
+        x.classList.toggle("on", on);
+        x.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      syncLegend();
+      restyle();
+      track("shade_mode", { mode: shadeMode, chamber: chamber });
+    });
+  });
+
+  // ---- the district picker -----------------------------------------------
+
+  function fillPicker() {
+    var sel = document.getElementById("pick");
+    var m = (members && members[chamber]) || {};
+    sel.textContent = "";
+    var first = document.createElement("option");
+    first.value = "";
+    first.textContent = "Zoom to a " + CHAMBERS[chamber].short.toLowerCase() +
+                        " district\u2026";
+    sel.appendChild(first);
+    for (var i = 1; i <= CHAMBERS[chamber].n; i++) {
+      var row = m[String(i)], o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = row ? i + " \u2014 " + row[0] + " (" + row[1] + ")"
+                          : String(i);
+      sel.appendChild(o);
+    }
+  }
+
+  document.getElementById("pick").addEventListener("change", function () {
+    var n = parseInt(this.value, 10);
+    if (!n) { clearPick(); say(IDLE); return; }
+    var lyr = byNum[n];
+    if (!lyr) { say(CHAMBERS[chamber].label + " " + n + " is not in the data."); return; }
+    show(lyr);
+    say("Showing " + CHAMBERS[chamber].label + " " + n + ".");
+    track("district_search", { chamber: chamber, district: n });
+  });
   document.getElementById("detailClose").addEventListener("click", clearPick);
 
   // ---- label de-confliction ----------------------------------------------
@@ -307,7 +414,9 @@
       var layer = L.geoJSON(f, {
         style: BASE(f.properties),
         onEachFeature: function (_, lyr) {
-          lyr.bindTooltip(CHAMBERS[ch].label + " " + f.properties.d,
+          var who = (members && members[ch] && members[ch][String(f.properties.d)]);
+          lyr.bindTooltip(CHAMBERS[ch].label + " " + f.properties.d +
+                          (who ? " \u00b7 " + who[0] + " (" + who[1] + ")" : ""),
                           { sticky: true, direction: "top", opacity: .9 });
           lyr.on({
             mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
@@ -366,8 +475,9 @@
     labels.addTo(map);
     countEl.textContent = g.count + " " + CHAMBERS[ch].short.toLowerCase() +
                           " districts · 2024 boundaries";
-    document.getElementById("q").placeholder =
-      "District number (1–" + CHAMBERS[ch].n + ")";
+    fillPicker();
+    syncLegend();
+    restyle();
     if (fit && home) map.fitBounds(home, { padding: [20, 20] });
     syncLabels();
   }
@@ -428,23 +538,6 @@
     b.addEventListener("click", function () {
       switchTo(b.getAttribute("data-ch"), true);
     });
-  });
-
-  // ---- find --------------------------------------------------------------
-
-  document.getElementById("findForm").addEventListener("submit", function (e) {
-    e.preventDefault();
-    var max = CHAMBERS[chamber].n;
-    var n = parseInt(document.getElementById("q").value, 10);
-    if (isNaN(n) || n < 1 || n > max) {
-      say("Enter a district number from 1 to " + max + ".");
-      return;
-    }
-    var lyr = byNum[n];
-    if (!lyr) { say(CHAMBERS[chamber].label + " " + n + " is not in the data."); return; }
-    show(lyr);
-    say("Showing " + CHAMBERS[chamber].label + " " + n + ".");
-    track("district_search", { chamber: chamber, district: n });
   });
 
   document.getElementById("reset").addEventListener("click", function () {

@@ -260,7 +260,9 @@ find Steph Vigil without knowing she is running in 16, and it doubles as the
 reference for who holds what. There is a filter box because sixty-five faces
 is a lot to scan, matching on name, number or party letter. It stays in sync
 with the map: clicking a district marks it in the list and names it on the
-collapsed button, and reopening the list scrolls to the member you picked.
+collapsed button, and reopening the list scrolls to the member you picked. The
+selected member's portrait also appears in the detail bar at twice the list's
+size, since that bar is about one district rather than all of them.
 
 The portraits are hotlinked from leg.colorado.gov rather than copied here.
 They are permanent Rails blob URLs that redirect to a freshly signed S3 URL on

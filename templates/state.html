@@ -51,8 +51,16 @@
     position:absolute;left:14px;bottom:14px;z-index:1000;
     background:var(--panel);border:1px solid var(--line);border-radius:10px;
     box-shadow:0 6px 24px rgba(20,30,45,.12);
-    padding:11px 40px 11px 14px;display:flex;align-items:baseline;gap:14px;
+    padding:11px 40px 11px 14px;display:flex;align-items:center;gap:15px;
   }
+  .detail .face{width:68px;height:68px;flex:none;border-radius:8px;
+    overflow:hidden;background:var(--wash);box-shadow:0 0 0 1px rgba(0,0,0,.09)}
+  .detail .face[hidden]{display:none}
+  .detail .face img{width:100%;height:100%;display:block;object-fit:cover;
+    object-position:50% 16%}
+  .detail .face .ini{display:flex;width:100%;height:100%;align-items:center;
+    justify-content:center;font-size:21px;font-weight:600;color:#8d96a2;
+    letter-spacing:.02em}
   .detail[hidden]{display:none}
   .detail .num{font-size:21px;font-weight:650;font-variant-numeric:tabular-nums}
   .detail .lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;
@@ -81,19 +89,19 @@
   .roster input{width:100%;padding:8px 10px;font:inherit;font-size:12.5px;
     border:0;border-bottom:1px solid var(--line);background:#fbfcfd;color:var(--ink)}
   .roster input:focus{outline:none;background:#fff}
-  .roster ul{margin:0;padding:0;list-style:none;max-height:308px;overflow-y:auto}
-  .roster li button{display:flex;align-items:center;gap:9px;width:100%;
-    padding:5px 9px;font:inherit;background:none;border:0;cursor:pointer;
+  .roster ul{margin:0;padding:0;list-style:none;max-height:362px;overflow-y:auto}
+  .roster li button{display:flex;align-items:center;gap:10px;width:100%;
+    padding:6px 9px;font:inherit;background:none;border:0;cursor:pointer;
     text-align:left;color:var(--ink)}
   .roster li button:hover{background:var(--wash)}
   .roster li button.on{background:#e7f0f8}
   /* Portraits are head-and-shoulders on a tall frame, so the square crop is
      biased upward -- centred, it cuts the face in half. */
-  .roster .pic{width:34px;height:34px;flex:none;border-radius:5px;
+  .roster .pic{width:51px;height:51px;flex:none;border-radius:6px;
     object-fit:cover;object-position:50% 16%;background:var(--wash);
     box-shadow:0 0 0 1px rgba(0,0,0,.08)}
   .roster .ini{display:flex;align-items:center;justify-content:center;
-    font-size:11.5px;font-weight:600;color:#8d96a2;letter-spacing:.02em}
+    font-size:16px;font-weight:600;color:#8d96a2;letter-spacing:.02em}
   .roster .txt{min-width:0}
   .roster .nm{font-size:12.5px;font-weight:550;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis}
@@ -182,6 +190,7 @@
 
 <div class="detail" id="detail" hidden>
   <button type="button" id="detailClose" aria-label="Close">&times;</button>
+  <div class="face" id="dFace" hidden></div>
   <div>
     <div class="lbl" id="dLbl">House District</div>
     <div class="num" id="dNum"></div>
@@ -295,6 +304,7 @@
   // ---- detail bar ---------------------------------------------------------
 
   function fillMember(d) {
+    fillFace(d);
     var who = document.getElementById("dWho");
     var noteEl = document.getElementById("dNote");
     var row = members && members[chamber] && members[chamber][String(d)];
@@ -312,6 +322,19 @@
     who.appendChild(tag);
     if (row[2]) { noteEl.textContent = row[2]; noteEl.hidden = false; }
     else { noteEl.hidden = true; }
+  }
+
+  function fillFace(d) {
+    var face = document.getElementById("dFace");
+    var row = members && members[chamber] && members[chamber][String(d)];
+    face.textContent = "";
+    if (!row) { face.hidden = true; return; }
+    face.hidden = false;
+    // Eager here, not lazy: the bar opens because someone asked for this one
+    // district, so the portrait should be there when the panel appears.
+    var node = avatar(row[0], photoFor(d), "", "ini");
+    if (node.tagName === "IMG") node.loading = "eager";
+    face.appendChild(node);
   }
 
   function show(layer) {
@@ -407,10 +430,14 @@
     return (first + last).toUpperCase();
   }
 
-  function avatar(name, url) {
+  // Shared by the roster list and the detail bar, which size it differently;
+  // imgClass/iniClass let each caller style its own.
+  function avatar(name, url, imgClass, iniClass) {
+    imgClass = imgClass === undefined ? "pic" : imgClass;
+    iniClass = iniClass === undefined ? "pic ini" : iniClass;
     if (url) {
       var img = document.createElement("img");
-      img.className = "pic";
+      if (imgClass) img.className = imgClass;
       img.loading = "lazy";
       img.decoding = "async";
       img.referrerPolicy = "no-referrer";
@@ -419,14 +446,21 @@
       // If the state's server is down or has moved the file, fall back rather
       // than leaving a broken-image box in the list.
       img.addEventListener("error", function () {
-        if (img.parentNode) img.parentNode.replaceChild(avatar(name, null), img);
+        if (img.parentNode) {
+          img.parentNode.replaceChild(avatar(name, null, imgClass, iniClass), img);
+        }
       });
       return img;
     }
     var box = document.createElement("span");
-    box.className = "pic ini";
+    box.className = iniClass;
     box.textContent = initials(name);
     return box;
+  }
+
+  function photoFor(d) {
+    var pics = members && members.photos && members.photos[chamber];
+    return (pics && pics[String(d)]) || "";
   }
 
   function buildRoster() {
@@ -444,7 +478,7 @@
       btn.type = "button";
       btn.setAttribute("data-d", key);
 
-      btn.appendChild(avatar(name, pics[key]));
+      btn.appendChild(avatar(name, pics[key], "pic", "pic ini"));
 
       var txt = document.createElement("span");
       txt.className = "txt";

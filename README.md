@@ -274,6 +274,15 @@ not been photographed yet -- nine of them, all recent vacancy appointments --
 shows their initials instead. If the state's server is unreachable the list
 falls back to initials rather than showing broken images.
 
+The detail bar also gives the date the member took the seat, labelled "in
+this seat" rather than "serving since" because that is what the data actually
+says. Open States opens a new record when a district number changes, so Julie
+McCluskie reads as January 2023 in House 13 although she has been in the
+chamber since 2019; she was House 61 before redistricting. Taking that figure
+for length of service would understate the tenure of everyone redistricted in
+2021, so the label names the seat, not the career. House 32 has no date, for
+the same reason it has no portrait.
+
 `tools/build_legislators.py` adds those URLs from the Open States people
 dataset and, more usefully, cross-checks it against the roster: every one of
 the 100 seats agrees on surname and party, which is how the one real error was

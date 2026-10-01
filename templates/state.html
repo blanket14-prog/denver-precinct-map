@@ -69,6 +69,7 @@
     font-variant-numeric:tabular-nums}
   .detail .who{padding-left:14px;border-left:1px solid var(--line)}
   .detail .name{font-size:15px;font-weight:600;white-space:nowrap}
+  .detail #dSince{font-weight:500;font-variant-numeric:tabular-nums}
   .detail .name .party{font-weight:500;color:var(--muted)}
   .detail .note{font-size:11px;color:var(--muted);max-width:240px;white-space:normal}
   .detail .note[hidden]{display:none}
@@ -200,6 +201,10 @@
     <div class="name" id="dWho">&mdash;</div>
     <div class="note" id="dNote" hidden></div>
   </div>
+  <div class="who" id="dSinceBox" hidden>
+    <div class="lbl">In this seat</div>
+    <div class="name" id="dSince"></div>
+  </div>
   <div class="stat" id="dArea"></div>
 </div>
 
@@ -305,12 +310,14 @@
 
   function fillMember(d) {
     fillFace(d);
+    fillSince(d);
     var who = document.getElementById("dWho");
     var noteEl = document.getElementById("dNote");
     var row = members && members[chamber] && members[chamber][String(d)];
     if (!row) {
       who.textContent = "—";
       noteEl.hidden = true;
+      document.getElementById("dSinceBox").hidden = true;
       return;
     }
     var party = PARTY[row[1]] || row[1];
@@ -322,6 +329,27 @@
     who.appendChild(tag);
     if (row[2]) { noteEl.textContent = row[2]; noteEl.hidden = false; }
     else { noteEl.hidden = true; }
+  }
+
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+                "August", "September", "October", "November", "December"];
+
+  // Built from the parts rather than new Date("2023-01-09"), which parses as
+  // UTC midnight and so renders as the 8th in Denver.
+  function longDate(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ""));
+    if (!m) return "";
+    return MONTHS[+m[2] - 1] + " " + (+m[3]) + ", " + m[1];
+  }
+
+  function fillSince(d) {
+    var box = document.getElementById("dSinceBox");
+    var since = members && members.since && members.since[chamber];
+    var iso = since && since[String(d)];
+    var text = longDate(iso);
+    if (!text) { box.hidden = true; return; }
+    document.getElementById("dSince").textContent = text;
+    box.hidden = false;
   }
 
   function fillFace(d) {

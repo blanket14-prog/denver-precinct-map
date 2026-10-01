@@ -70,10 +70,17 @@ def read_people(clone):
             continue
         chamber = "house" if role["type"] == "lower" else "senate"
         party = (p.get("party") or [{}])[0].get("name", "")
+        start = as_date(role.get("start_date"))
         out[(chamber, str(int(role["district"])))] = {
             "name": p["name"],
             "party": party[:1] or "?",
             "image": p.get("image") or "",
+            # When they took THIS seat, which is not the same as when they
+            # first took office: Open States starts a new role at a district
+            # change, so a member redistricted in 2021 reads as starting in
+            # January 2023 even after a decade in the chamber. The map labels
+            # it "in this seat" for exactly that reason.
+            "since": start.isoformat() if start else "",
         }
     return out
 
@@ -83,6 +90,7 @@ def main():
     people = read_people(CLONE)
 
     photos = {"house": {}, "senate": {}}
+    since = {"house": {}, "senate": {}}
     missing, disagree, unmatched = [], [], []
 
     for chamber in ("house", "senate"):
@@ -102,16 +110,26 @@ def main():
                 photos[chamber][district] = other["image"]
             else:
                 missing.append("%s %s %s" % (chamber, district, row[0]))
+            if other["since"]:
+                since[chamber][district] = other["since"]
 
     doc["photos"] = photos
+    doc["since"] = since
+    doc["since_note"] = ("Date the member took this particular seat, from Open "
+                         "States. Not their first day in the legislature: a "
+                         "member whose district number changed in redistricting "
+                         "starts a new record.")
     doc["photo_source"] = ("Portraits published by the Colorado General Assembly, "
                            "linked from leg.colorado.gov; URLs via the Open States "
                            "people dataset")
     with open(PATH, "w") as fh:
         json.dump(doc, fh, indent=1, ensure_ascii=False, sort_keys=False)
 
+    seats = len(doc["house"]) + len(doc["senate"])
     have = len(photos["house"]) + len(photos["senate"])
-    print("portraits: %d of %d seats" % (have, len(doc["house"]) + len(doc["senate"])))
+    dated = len(since["house"]) + len(since["senate"])
+    print("portraits: %d of %d seats" % (have, seats))
+    print("start dates: %d of %d seats" % (dated, seats))
     if missing:
         print("  no portrait published yet (%d):" % len(missing))
         for m in missing:

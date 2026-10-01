@@ -254,11 +254,29 @@ boundary change that pushes a number back against an edge is visible.
 
 ### Picking a district, and shading by party
 
-The panel's number box became a dropdown in v41. It lists every district with
-the member's name, so you can find Steph Vigil without knowing she is running
-in 16, and it doubles as the legend for who holds what. It stays in sync with
-the map: clicking a district selects it in the list, and choosing the blank
-first entry clears the selection.
+The panel's number box became a dropdown in v41 and an expandable roster in
+v42. It lists every district with the member's portrait and name, so you can
+find Steph Vigil without knowing she is running in 16, and it doubles as the
+reference for who holds what. There is a filter box because sixty-five faces
+is a lot to scan, matching on name, number or party letter. It stays in sync
+with the map: clicking a district marks it in the list and names it on the
+collapsed button, and reopening the list scrolls to the member you picked.
+
+The portraits are hotlinked from leg.colorado.gov rather than copied here.
+They are permanent Rails blob URLs that redirect to a freshly signed S3 URL on
+each request, so they stay current on their own; mirroring a hundred official
+portraits onto a free-tier service would mean re-hosting someone else's images
+and watching them go stale the day a member is sworn in. They load lazily, so
+the page costs nothing until the list is opened, and a seat whose holder has
+not been photographed yet -- nine of them, all recent vacancy appointments --
+shows their initials instead. If the state's server is unreachable the list
+falls back to initials rather than showing broken images.
+
+`tools/build_legislators.py` adds those URLs from the Open States people
+dataset and, more usefully, cross-checks it against the roster: every one of
+the 100 seats agrees on surname and party, which is how the one real error was
+caught (Lorena Garcia should be Lorena García). House 32 is not in Open
+States at all, having been filled by appointment since their last update.
 
 "By party" recolours the districts from the same member file, blue for the
 Democratic seats and red for the Republican, with the chamber's split in the

@@ -65,11 +65,42 @@
   .detail .note{font-size:11px;color:var(--muted);max-width:240px;white-space:normal}
   .detail .note[hidden]{display:none}
   .panel .row{padding:0 15px 12px}
-  .panel select{width:100%;padding:8px 10px;font:inherit;font-size:13px;
-    color:var(--ink);border:1px solid var(--line);border-radius:6px;
-    background:#fbfcfd}
-  .panel select:focus{outline:none;border-color:var(--accent-soft);
+  .rosterbtn{width:100%;display:flex;align-items:center;justify-content:space-between;
+    gap:8px;padding:8px 10px;font:inherit;font-size:13px;color:var(--ink);
+    background:#fbfcfd;border:1px solid var(--line);border-radius:6px;
+    cursor:pointer;text-align:left}
+  .rosterbtn:hover{border-color:var(--accent-soft)}
+  .rosterbtn:focus-visible{outline:none;border-color:var(--accent-soft);
     box-shadow:0 0 0 3px rgba(74,144,196,.15)}
+  .rosterbtn .chev{color:var(--muted);font-size:11px;flex:none;
+    transition:transform .15s}
+  .rosterbtn[aria-expanded="true"] .chev{transform:rotate(180deg)}
+  .roster{margin-top:7px;border:1px solid var(--line);border-radius:8px;
+    background:#fff;overflow:hidden}
+  .roster[hidden]{display:none}
+  .roster input{width:100%;padding:8px 10px;font:inherit;font-size:12.5px;
+    border:0;border-bottom:1px solid var(--line);background:#fbfcfd;color:var(--ink)}
+  .roster input:focus{outline:none;background:#fff}
+  .roster ul{margin:0;padding:0;list-style:none;max-height:308px;overflow-y:auto}
+  .roster li button{display:flex;align-items:center;gap:9px;width:100%;
+    padding:5px 9px;font:inherit;background:none;border:0;cursor:pointer;
+    text-align:left;color:var(--ink)}
+  .roster li button:hover{background:var(--wash)}
+  .roster li button.on{background:#e7f0f8}
+  /* Portraits are head-and-shoulders on a tall frame, so the square crop is
+     biased upward -- centred, it cuts the face in half. */
+  .roster .pic{width:34px;height:34px;flex:none;border-radius:5px;
+    object-fit:cover;object-position:50% 16%;background:var(--wash);
+    box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+  .roster .ini{display:flex;align-items:center;justify-content:center;
+    font-size:11.5px;font-weight:600;color:#8d96a2;letter-spacing:.02em}
+  .roster .txt{min-width:0}
+  .roster .nm{font-size:12.5px;font-weight:550;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .roster .sub{font-size:11px;color:var(--muted)}
+  .roster .dot{width:7px;height:7px;border-radius:50%;flex:none;margin-left:auto}
+  .rosternone{margin:0;padding:11px;font-size:12px;color:var(--muted)}
+  .rosternone[hidden]{display:none}
   .legend{display:flex;gap:16px;padding:0 15px 12px;font-size:12px;
     color:var(--muted)}
   .legend[hidden]{display:none}
@@ -126,9 +157,17 @@
     <button type="button" data-ch="senate">Senate &middot; 35</button>
   </div>
   <div class="row">
-    <select id="pick" aria-label="Zoom to a district">
-      <option value="">Zoom to a district&hellip;</option>
-    </select>
+    <button type="button" id="rosterBtn" class="rosterbtn"
+            aria-expanded="false" aria-controls="roster">
+      <span id="rosterLabel">Zoom to a district</span>
+      <span class="chev" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="roster" id="roster" hidden>
+      <input id="rosterQ" type="text" autocomplete="off"
+             placeholder="Filter by name or number" aria-label="Filter districts">
+      <ul id="rosterList"></ul>
+      <p class="rosternone" id="rosterNone" hidden>No match.</p>
+    </div>
   </div>
   <div class="chamber" id="shade">
     <button type="button" data-mode="mix" class="on" aria-pressed="true">Mixed colors</button>
@@ -286,7 +325,8 @@
     document.getElementById("dArea").textContent =
       p.area.toLocaleString() + " square miles";
     fillMember(p.d);
-    document.getElementById("pick").value = String(p.d);
+    syncRosterLabel();
+    markRoster();
     detail.hidden = false;
     map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: .7 });
     track("district_view", { chamber: chamber, district: p.d });
@@ -295,7 +335,8 @@
   function clearPick() {
     if (picked) picked.setStyle(BASE(picked.feature.properties));
     picked = null;
-    document.getElementById("pick").value = "";
+    syncRosterLabel();
+    markRoster();
     detail.hidden = true;
   }
 
@@ -343,35 +384,163 @@
     });
   });
 
-  // ---- the district picker -----------------------------------------------
+  // ---- the roster --------------------------------------------------------
 
-  function fillPicker() {
-    var sel = document.getElementById("pick");
-    var m = (members && members[chamber]) || {};
-    sel.textContent = "";
-    var first = document.createElement("option");
-    first.value = "";
-    first.textContent = "Zoom to a " + CHAMBERS[chamber].short.toLowerCase() +
-                        " district\u2026";
-    sel.appendChild(first);
-    for (var i = 1; i <= CHAMBERS[chamber].n; i++) {
-      var row = m[String(i)], o = document.createElement("option");
-      o.value = String(i);
-      o.textContent = row ? i + " \u2014 " + row[0] + " (" + row[1] + ")"
-                          : String(i);
-      sel.appendChild(o);
-    }
+  // A dropdown of 65 numbers tells you nothing about who holds them, so this
+  // is a list with the member's face on it. Portraits are hotlinked from
+  // leg.colorado.gov, lazily, so the page costs nothing until the list is
+  // opened; a seat whose holder has not been photographed yet -- usually a
+  // recent vacancy appointment -- gets their initials instead.
+  var rosterBtn = document.getElementById("rosterBtn");
+  var rosterEl = document.getElementById("roster");
+  var rosterList = document.getElementById("rosterList");
+  var rosterQ = document.getElementById("rosterQ");
+  var rosterLabel = document.getElementById("rosterLabel");
+  var rosterNone = document.getElementById("rosterNone");
+  var rosterRows = [];
+
+  function initials(name) {
+    var parts = String(name).split(/\s+/).filter(Boolean);
+    if (!parts.length) return "?";
+    var first = parts[0].charAt(0);
+    var last = parts.length > 1 ? parts[parts.length - 1].charAt(0) : "";
+    return (first + last).toUpperCase();
   }
 
-  document.getElementById("pick").addEventListener("change", function () {
-    var n = parseInt(this.value, 10);
-    if (!n) { clearPick(); say(IDLE); return; }
+  function avatar(name, url) {
+    if (url) {
+      var img = document.createElement("img");
+      img.className = "pic";
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.referrerPolicy = "no-referrer";
+      img.alt = "";
+      img.src = url;
+      // If the state's server is down or has moved the file, fall back rather
+      // than leaving a broken-image box in the list.
+      img.addEventListener("error", function () {
+        if (img.parentNode) img.parentNode.replaceChild(avatar(name, null), img);
+      });
+      return img;
+    }
+    var box = document.createElement("span");
+    box.className = "pic ini";
+    box.textContent = initials(name);
+    return box;
+  }
+
+  function buildRoster() {
+    var m = (members && members[chamber]) || {};
+    var pics = (members && members.photos && members.photos[chamber]) || {};
+    rosterList.textContent = "";
+    rosterRows = [];
+    for (var i = 1; i <= CHAMBERS[chamber].n; i++) {
+      var key = String(i), row = m[key];
+      var name = row ? row[0] : "";
+      var party = row ? row[1] : "";
+
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("data-d", key);
+
+      btn.appendChild(avatar(name, pics[key]));
+
+      var txt = document.createElement("span");
+      txt.className = "txt";
+      var nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = name || "Vacant";
+      var sub = document.createElement("span");
+      sub.className = "sub";
+      sub.textContent = CHAMBERS[chamber].short + " " + i +
+                        (party ? " \u00b7 " + (PARTY[party] || party) : "");
+      txt.appendChild(nm);
+      txt.appendChild(document.createElement("br"));
+      txt.appendChild(sub);
+      btn.appendChild(txt);
+
+      var dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = PARTY_FILL[party] || NO_PARTY;
+      btn.appendChild(dot);
+
+      li.appendChild(btn);
+      rosterList.appendChild(li);
+      rosterRows.push({ li: li, btn: btn, d: i,
+                        hay: (i + " " + name + " " + party).toLowerCase() });
+    }
+    markRoster();
+    filterRoster();
+  }
+
+  function markRoster() {
+    var cur = picked && picked.feature ? String(picked.feature.properties.d) : null;
+    rosterRows.forEach(function (r) {
+      r.btn.classList.toggle("on", String(r.d) === cur);
+    });
+  }
+
+  function filterRoster() {
+    var q = rosterQ.value.trim().toLowerCase();
+    var shown = 0;
+    rosterRows.forEach(function (r) {
+      var ok = !q || r.hay.indexOf(q) >= 0;
+      r.li.hidden = !ok;
+      if (ok) shown++;
+    });
+    rosterNone.hidden = shown > 0;
+  }
+  rosterQ.addEventListener("input", filterRoster);
+
+  function openRoster(open) {
+    rosterEl.hidden = !open;
+    rosterBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (!open) return;
+    rosterQ.value = "";
+    filterRoster();
+    rosterQ.focus();
+    // Open on the selected member rather than at district 1, so reopening the
+    // list after picking 58 does not mean scrolling back down to find it.
+    var on = rosterList.querySelector("button.on");
+    if (on) on.scrollIntoView({ block: "center" });
+  }
+
+  rosterBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    openRoster(rosterEl.hidden);
+  });
+  rosterEl.addEventListener("click", function (e) { e.stopPropagation(); });
+  document.addEventListener("click", function () {
+    if (!rosterEl.hidden) openRoster(false);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && !rosterEl.hidden) { openRoster(false); rosterBtn.focus(); }
+  });
+
+  rosterList.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("button[data-d]") : null;
+    if (!btn) return;
+    var n = parseInt(btn.getAttribute("data-d"), 10);
     var lyr = byNum[n];
+    openRoster(false);
     if (!lyr) { say(CHAMBERS[chamber].label + " " + n + " is not in the data."); return; }
     show(lyr);
     say("Showing " + CHAMBERS[chamber].label + " " + n + ".");
     track("district_search", { chamber: chamber, district: n });
   });
+
+  function syncRosterLabel() {
+    if (!picked || !picked.feature) {
+      rosterLabel.textContent = "Zoom to a " +
+        CHAMBERS[chamber].short.toLowerCase() + " district";
+      return;
+    }
+    var d = picked.feature.properties.d;
+    var row = members && members[chamber] && members[chamber][String(d)];
+    rosterLabel.textContent = CHAMBERS[chamber].short + " " + d +
+                              (row ? " \u00b7 " + row[0] : "");
+  }
   document.getElementById("detailClose").addEventListener("click", clearPick);
 
   // ---- label de-confliction ----------------------------------------------
@@ -475,7 +644,8 @@
     labels.addTo(map);
     countEl.textContent = g.count + " " + CHAMBERS[ch].short.toLowerCase() +
                           " districts · 2024 boundaries";
-    fillPicker();
+    buildRoster();
+    syncRosterLabel();
     syncLegend();
     restyle();
     if (fit && home) map.fitBounds(home, { padding: [20, 20] });

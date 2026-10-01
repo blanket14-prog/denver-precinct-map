@@ -1,44 +1,508 @@
 {
-  "source": "Colorado General Assembly legislator directory, leg.colorado.gov",
-  "retrieved": "2026-10-01",
-  "note": "Members serving now. The 2026 general election has not been held.",
+ "source": "Colorado General Assembly legislator directory, leg.colorado.gov",
+ "retrieved": "2026-10-01",
+ "note": "Members serving now. The 2026 general election has not been held.",
+ "house": {
+  "1": [
+   "Javier Mabrey",
+   "D"
+  ],
+  "2": [
+   "Steven Woodrow",
+   "D"
+  ],
+  "3": [
+   "Meg Froelich",
+   "D"
+  ],
+  "4": [
+   "Cecelia Espenoza",
+   "D"
+  ],
+  "5": [
+   "Alex Valdez",
+   "D"
+  ],
+  "6": [
+   "Sean Camacho",
+   "D"
+  ],
+  "7": [
+   "Jennifer Bacon",
+   "D"
+  ],
+  "8": [
+   "Lindsay Gilchrist",
+   "D"
+  ],
+  "9": [
+   "Emily Sirota",
+   "D"
+  ],
+  "10": [
+   "Junie Joseph",
+   "D"
+  ],
+  "11": [
+   "Karen McCormick",
+   "D"
+  ],
+  "12": [
+   "Kyle Brown",
+   "D"
+  ],
+  "13": [
+   "Julie McCluskie",
+   "D"
+  ],
+  "14": [
+   "Ava Flanell",
+   "R"
+  ],
+  "15": [
+   "Scott Bottoms",
+   "R"
+  ],
+  "16": [
+   "Rebecca Keltie",
+   "R"
+  ],
+  "17": [
+   "Regina English",
+   "D"
+  ],
+  "18": [
+   "Amy Paschal",
+   "D"
+  ],
+  "19": [
+   "Dan Woog",
+   "R"
+  ],
+  "20": [
+   "Jarvis Caldwell",
+   "R"
+  ],
+  "21": [
+   "Mary Bradfield",
+   "R"
+  ],
+  "22": [
+   "Ken DeGraaf",
+   "R"
+  ],
+  "23": [
+   "Monica Duran",
+   "D"
+  ],
+  "24": [
+   "Lisa Feret",
+   "D"
+  ],
+  "25": [
+   "Tammy Story",
+   "D"
+  ],
+  "26": [
+   "Meghan Lukens",
+   "D"
+  ],
+  "27": [
+   "Brianna Titone",
+   "D"
+  ],
+  "28": [
+   "Sheila Lieder",
+   "D"
+  ],
+  "29": [
+   "Lori Goldstein",
+   "D"
+  ],
+  "30": [
+   "Rebekah Stewart",
+   "D"
+  ],
+  "31": [
+   "Jacque Phillips",
+   "D"
+  ],
+  "32": [
+   "Manny Rutinel",
+   "D"
+  ],
+  "33": [
+   "Kenny Nguyen",
+   "D"
+  ],
+  "34": [
+   "Jenny Willford",
+   "D"
+  ],
+  "35": [
+   "Lorena García",
+   "D"
+  ],
+  "36": [
+   "Michael Carter",
+   "D"
+  ],
+  "37": [
+   "Chad Clifford",
+   "D"
+  ],
+  "38": [
+   "Gretchen Rydin",
+   "D"
+  ],
+  "39": [
+   "Brandi Bradley",
+   "R"
+  ],
+  "40": [
+   "Naquetta Ricks",
+   "D"
+  ],
+  "41": [
+   "Jamie Jackson",
+   "D"
+  ],
+  "42": [
+   "Mandy Lindsay",
+   "D"
+  ],
+  "43": [
+   "Bob Marshall",
+   "D"
+  ],
+  "44": [
+   "Anthony Hartsook",
+   "R"
+  ],
+  "45": [
+   "Max Brooks",
+   "R"
+  ],
+  "46": [
+   "Tisha Mauro",
+   "D"
+  ],
+  "47": [
+   "Ty Winter",
+   "R"
+  ],
+  "48": [
+   "Carlos Barron",
+   "R"
+  ],
+  "49": [
+   "Lesley Smith",
+   "D"
+  ],
+  "50": [
+   "Ryan Gonzalez",
+   "R"
+  ],
+  "51": [
+   "Ron Weinberg",
+   "R"
+  ],
+  "52": [
+   "Yara Zokaie",
+   "D"
+  ],
+  "53": [
+   "Andrew Boesenecker",
+   "D"
+  ],
+  "54": [
+   "Matt Soper",
+   "R"
+  ],
+  "55": [
+   "Rick Taggart",
+   "R"
+  ],
+  "56": [
+   "Chris Richardson",
+   "R"
+  ],
+  "57": [
+   "Elizabeth Velasco",
+   "D"
+  ],
+  "58": [
+   "Larry Don Suckla",
+   "R"
+  ],
+  "59": [
+   "Katie Stewart",
+   "D"
+  ],
+  "60": [
+   "Stephanie Luck",
+   "R"
+  ],
+  "61": [
+   "Eliza Hamrick",
+   "D"
+  ],
+  "62": [
+   "Matthew Martinez",
+   "D"
+  ],
+  "63": [
+   "Dusty Johnson",
+   "R"
+  ],
+  "64": [
+   "Scott Slaugh",
+   "R"
+  ],
+  "65": [
+   "Lori Garcia Sander",
+   "R"
+  ]
+ },
+ "senate": {
+  "1": [
+   "Byron Pelton",
+   "R"
+  ],
+  "2": [
+   "Lisa Frizell",
+   "R"
+  ],
+  "3": [
+   "Nick Hinrichsen",
+   "D"
+  ],
+  "4": [
+   "Mark Baisley",
+   "R"
+  ],
+  "5": [
+   "Marc Catlin",
+   "R"
+  ],
+  "6": [
+   "Cleave Simpson",
+   "R"
+  ],
+  "7": [
+   "Janice Rich",
+   "R"
+  ],
+  "8": [
+   "Dylan Roberts",
+   "D"
+  ],
+  "9": [
+   "Lynda Zamora Wilson",
+   "R"
+  ],
+  "10": [
+   "Larry Liston",
+   "R"
+  ],
+  "11": [
+   "Tony Exum",
+   "D"
+  ],
+  "12": [
+   "Marc Snyder",
+   "D"
+  ],
+  "13": [
+   "Scott Bright",
+   "R"
+  ],
+  "14": [
+   "Cathy Kipp",
+   "D"
+  ],
+  "15": [
+   "Janice Marchman",
+   "D"
+  ],
+  "16": [
+   "Chris Kolker",
+   "D"
+  ],
+  "17": [
+   "Katie Wallace",
+   "D"
+  ],
+  "18": [
+   "Judy Amabile",
+   "D"
+  ],
+  "19": [
+   "Lindsey Daugherty",
+   "D"
+  ],
+  "20": [
+   "Lisa Cutter",
+   "D"
+  ],
+  "21": [
+   "Adrienne Benavidez",
+   "D",
+   "appointed after a resignation in February 2026"
+  ],
+  "22": [
+   "Jessie Danielson",
+   "D"
+  ],
+  "23": [
+   "Barbara Kirkmeyer",
+   "R"
+  ],
+  "24": [
+   "Kyle Mullica",
+   "D"
+  ],
+  "25": [
+   "William Lindstedt",
+   "D"
+  ],
+  "26": [
+   "Jeff Bridges",
+   "D"
+  ],
+  "27": [
+   "Tom Sullivan",
+   "D"
+  ],
+  "28": [
+   "Mike Weissman",
+   "D"
+  ],
+  "29": [
+   "Iman Jodeh",
+   "D"
+  ],
+  "30": [
+   "John Carson",
+   "R"
+  ],
+  "31": [
+   "Matt Ball",
+   "D"
+  ],
+  "32": [
+   "Robert Rodriguez",
+   "D"
+  ],
+  "33": [
+   "James Coleman",
+   "D"
+  ],
+  "34": [
+   "Julie Gonzales",
+   "D"
+  ],
+  "35": [
+   "Rod Pelton",
+   "R"
+  ]
+ },
+ "photos": {
   "house": {
-    "1": ["Javier Mabrey", "D"], "2": ["Steven Woodrow", "D"], "3": ["Meg Froelich", "D"],
-    "4": ["Cecelia Espenoza", "D"], "5": ["Alex Valdez", "D"], "6": ["Sean Camacho", "D"],
-    "7": ["Jennifer Bacon", "D"], "8": ["Lindsay Gilchrist", "D"], "9": ["Emily Sirota", "D"],
-    "10": ["Junie Joseph", "D"], "11": ["Karen McCormick", "D"], "12": ["Kyle Brown", "D"],
-    "13": ["Julie McCluskie", "D"], "14": ["Ava Flanell", "R"], "15": ["Scott Bottoms", "R"],
-    "16": ["Rebecca Keltie", "R"], "17": ["Regina English", "D"], "18": ["Amy Paschal", "D"],
-    "19": ["Dan Woog", "R"], "20": ["Jarvis Caldwell", "R"], "21": ["Mary Bradfield", "R"],
-    "22": ["Ken DeGraaf", "R"], "23": ["Monica Duran", "D"], "24": ["Lisa Feret", "D"],
-    "25": ["Tammy Story", "D"], "26": ["Meghan Lukens", "D"], "27": ["Brianna Titone", "D"],
-    "28": ["Sheila Lieder", "D"], "29": ["Lori Goldstein", "D"], "30": ["Rebekah Stewart", "D"],
-    "31": ["Jacque Phillips", "D"], "32": ["Manny Rutinel", "D"], "33": ["Kenny Nguyen", "D"],
-    "34": ["Jenny Willford", "D"], "35": ["Lorena Garcia", "D"], "36": ["Michael Carter", "D"],
-    "37": ["Chad Clifford", "D"], "38": ["Gretchen Rydin", "D"], "39": ["Brandi Bradley", "R"],
-    "40": ["Naquetta Ricks", "D"], "41": ["Jamie Jackson", "D"], "42": ["Mandy Lindsay", "D"],
-    "43": ["Bob Marshall", "D"], "44": ["Anthony Hartsook", "R"], "45": ["Max Brooks", "R"],
-    "46": ["Tisha Mauro", "D"], "47": ["Ty Winter", "R"], "48": ["Carlos Barron", "R"],
-    "49": ["Lesley Smith", "D"], "50": ["Ryan Gonzalez", "R"], "51": ["Ron Weinberg", "R"],
-    "52": ["Yara Zokaie", "D"], "53": ["Andrew Boesenecker", "D"], "54": ["Matt Soper", "R"],
-    "55": ["Rick Taggart", "R"], "56": ["Chris Richardson", "R"], "57": ["Elizabeth Velasco", "D"],
-    "58": ["Larry Don Suckla", "R"], "59": ["Katie Stewart", "D"], "60": ["Stephanie Luck", "R"],
-    "61": ["Eliza Hamrick", "D"], "62": ["Matthew Martinez", "D"], "63": ["Dusty Johnson", "R"],
-    "64": ["Scott Slaugh", "R"], "65": ["Lori Garcia Sander", "R"]
+   "1": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeGhUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--d5786817bd26f7bddab7f2d1085068af877cdf48/Mabrey,%20Javier.jpg",
+   "2": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMXhUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--b28a2d8e234c37d646a99efd0b7aea44a198fe9d/Woodrow,Steven-.jpg",
+   "3": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeUpUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--2f6a935d21bc9d78189accacc0743c3071e567a1/Froelich,%20Meg.jpg",
+   "4": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/CeceliaEspenoza24.jpg",
+   "5": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMU5UQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--d081dee839aa2f1b43bce42882d1b5e679141a05/Valdez,%20Alex.jpg",
+   "6": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/SeanCamacho2024.jpeg",
+   "7": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeXhUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--9cf98fe8dc3d759fedb356430b801c66ad2b1edd/Bacon,%20Jennifer.jpg",
+   "8": "https://images.squarespace-cdn.com/content/v1/5ea0cb44b06d660224de3cc9/1588045290088-U5X5Z0VC06EFGHN9K1AC/lindsay-gilchrist.jpg?format=500w",
+   "9": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeTVUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--14b86aa8d8dc84d49199d71d5ad732b0abe8eb38/Sirota,%20Emily.jpg",
+   "10": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeWRUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--c05fd8101f2bb8458f9e92fcaac1e5d867b1b662/Joseph,Junie.jpg",
+   "11": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMkJUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--e6c90c7865f8557c6411c91a27f58280cf938f05/McCormick,%20Karen.jpg",
+   "12": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMEZUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4dbbcef24e21979fc4a8cd74bea005733c789d61/Brown,%20Kyle.jpg",
+   "13": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeEpUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--876516c8bc7b672caf43f253b83440d18b6eba1a/McCluskie,%20Julie.jpg",
+   "15": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMCtIQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--2fb56df7ac0ddd22f63e0eb99a03b0d30e48bff5/Rep%20Bottoms%202026.jpg",
+   "16": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/Rebecca_Keltie_new.jpeg",
+   "17": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBejFUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--854752db6d6188b1f926eb9e309d7791738093e5/English,%20Regina.jpg",
+   "18": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/AmyPaschall24.jpg",
+   "19": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBNEZUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--6bf3d084b17e200e01f2ade18431e32df8e43a60/Rep%20Woog%202026.jpg",
+   "20": "https://coloradonewsline.com/wp-content/uploads/2023/12/jarvis-caldwell--200x300.jpeg",
+   "21": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMXRUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--e23010a39e960f0ad905ba4df19c5be9cf9ea5b9/Bradfield,Mary.jpg",
+   "22": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeUJUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--375071f2707656fb29aac1700948de56433dd649/deGraaf,%20Ken.jpg",
+   "23": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeDVUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--807d51d68890b754bbaed0298372904fcf4a75d5/Duran,%20Monica.jpg",
+   "24": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/Lisa_Feret_20240622_065004.jpeg",
+   "25": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBelJUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--6eaeb97b2bd0b0a9f0bf46040f34663cd0c37112/Story,%20Tammy.jpg",
+   "26": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBM05UQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--16c3fe74431c9197b51b11e7bd64eb387369e758/Lukens,%20Meghan.jpg",
+   "27": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeUZUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--ee1a1cad1906ee93f20ffecfca5d9444e525ac05/Titone,%20Brianna.jpg",
+   "28": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeE5UQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--bbb6f4456c06c54b1c8fffade0441c9a63ccf12e/Lieder,%20Sheila.jpg",
+   "30": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/RebekahStewart2024.jpeg",
+   "31": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/jacque_phillips.jpg",
+   "34": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBM0pUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--1d5d85081063604c97df120526af629e099e84e1/Willford,%20Jenny.jpg",
+   "35": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMVZUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--000f403a3a00241cbcadbe814acab9558e10dde4/Garcia,%20Lorena.jpg",
+   "36": "https://aps.ss20.sharpschool.com/UserFiles/Servers/Server_3217444/Image/Board%20of%20Education/Members/Carter_Michael_152-200x300.jpg",
+   "38": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/GretchenRydin2024.jpeg",
+   "39": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMnhUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--f00bc156e1af4f5ddf1b991b5f96817a5221767c/Bradley,%20Brandi.jpg",
+   "40": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMjlUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--6ad9235336da0cb9a035f6bb879b11838db6749e/Ricks,%20Naquetta.jpg",
+   "41": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/Jamie_Jackson_Colorado_House.jpg",
+   "42": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeFpUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--16f693f706022e86e268da5a37a9a93ff4aef1ba/Lindsay,%20Mandy.jpg",
+   "43": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBM1pUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--18c815634a34450ae6caf0855eeb0406ea4582cc/Marshall,%20Bob.jpg",
+   "44": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeVpUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--500af1f4202491ae4bd34d7f8e8196708b8f0019/Hartsook,Anthony.jpg",
+   "45": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/MaxBrooks2024.jpg",
+   "46": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMlJUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--c083d9d0c61aec511c97d0802cd5873416f901d9/Mauro,%20Tisha.jpg",
+   "47": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMmRUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--7e3263a1638a76c8a5732293d1ea8f844d2e9d25/Winter,Ty.jpg",
+   "48": "https://i0.wp.com/coloradocommunitymedia.com/wp-content/uploads/2024/10/7A10C326-743A-4DF1-9625-6E709398C30F-JF-Services-Inc-Office-e1728345969755.jpg?resize=150%2C150&ssl=1",
+   "49": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/Lesley_Smith_20230524_083227.jpg",
+   "50": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/ryangonzalez.jpeg",
+   "51": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBekpUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--ff0c3a27e8b7c137cbdb5c5fde02af093a8db4b4/Rep%20Ron%20Weinberg.JPG",
+   "52": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/yf.jpeg",
+   "53": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMGhUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--cfaae02348bca597a92a30ada0c08d3e68ecc93f/Boesenecker,%20Andrew.jpg",
+   "54": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOVdUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--767a7057ff5fd758ce0cbddae6aa4c7b1ef907f2/Soper,%20Matthew.jpg",
+   "55": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBd3BUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--6b1fb5526e7780f89f9b2fb79535d4e7c39fc37b/TaggartRick.jpg",
+   "56": "https://i0.wp.com/coloradocommunitymedia.com/wp-content/uploads/2022/10/20221012-100004-Richardson20for20Facebook.jpg?resize=1200%2C782&ssl=1",
+   "57": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBNTltQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--1fae82b072c31f28dbf73e893d992426893562a5/Velasco,%20Elizabeth.jpg",
+   "59": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/KatieStewart2024.jpg",
+   "60": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBdzVUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--30a0b950ff1755b8691052388ed9b70f8fe688cc/Luck,%20Stephanie.jpg",
+   "61": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBd3RUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--291f32764a20e23b89e6ea44560dea6151853b61/Hamrick,Eliza-.jpg",
+   "62": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeEJUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4743a8832adf9daea6fe22f97942afef67ab8d1a/Martinez,%20Matthew.jpg",
+   "63": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/DustyJohnsonCO.jpg",
+   "65": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/LoriSander2024.jpg"
   },
   "senate": {
-    "1": ["Byron Pelton", "R"], "2": ["Lisa Frizell", "R"], "3": ["Nick Hinrichsen", "D"],
-    "4": ["Mark Baisley", "R"], "5": ["Marc Catlin", "R"], "6": ["Cleave Simpson", "R"],
-    "7": ["Janice Rich", "R"], "8": ["Dylan Roberts", "D"], "9": ["Lynda Zamora Wilson", "R"],
-    "10": ["Larry Liston", "R"], "11": ["Tony Exum", "D"], "12": ["Marc Snyder", "D"],
-    "13": ["Scott Bright", "R"], "14": ["Cathy Kipp", "D"], "15": ["Janice Marchman", "D"],
-    "16": ["Chris Kolker", "D"], "17": ["Katie Wallace", "D"], "18": ["Judy Amabile", "D"],
-    "19": ["Lindsey Daugherty", "D"], "20": ["Lisa Cutter", "D"],
-    "21": ["Adrienne Benavidez", "D", "appointed after a resignation in February 2026"],
-    "22": ["Jessie Danielson", "D"], "23": ["Barbara Kirkmeyer", "R"], "24": ["Kyle Mullica", "D"],
-    "25": ["William Lindstedt", "D"], "26": ["Jeff Bridges", "D"], "27": ["Tom Sullivan", "D"],
-    "28": ["Mike Weissman", "D"], "29": ["Iman Jodeh", "D"], "30": ["John Carson", "R"],
-    "31": ["Matt Ball", "D"], "32": ["Robert Rodriguez", "D"], "33": ["James Coleman", "D"],
-    "34": ["Julie Gonzales", "D"], "35": ["Rod Pelton", "R"]
+   "1": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBdzk5QXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--7602b8809ffd638d639b8a39132341d13e764130/Pelton,%20Byron.jpg",
+   "2": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBODVTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--2ea2d7fd307e8f1e762f9099be3a5b09bcb15f0a/Frizell,%20Lisa.jpg",
+   "3": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMmhUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4b49d3c681dec554da650bb248660b5dca8c032a/Hinrichsen,%20Nick.jpg",
+   "4": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBK2hTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--7e5bc18c718b71be8507a78ac7fd5c9f047b70ae/Baisley,%20Mark.jpg",
+   "5": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBdzlUQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--a385166cb7a79caaf96ebfd19a9e619a73014264/Catlin,%20Marc.jpg",
+   "6": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBL3hTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--7513585dd62fce02f81a3e6d3a1c44d08d397b9b/Simpson,%20Cleave.jpg",
+   "7": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBLzVTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--afd770f3635f91909fdcc0bde3b95c1599089da7/Rich,%20Janice.jpg",
+   "8": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOXhTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--8f1c6929289275427225aba6c766440b456c3b1a/Roberts,%20Dylan.jpg",
+   "10": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBK1pTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4e7ce4fd5e7d42b1e4e7ad102c27293ed3fd28c6/Liston,%20Larry.jpg",
+   "11": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBKzFTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--d4163d37a59db187d2e91b1e4af903d1385df345/Exum,%20Tony%20SR.jpg",
+   "12": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeWxwQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--af6fe2d0b4cf102c536ab81e2462d61d44783d1a/Snyder,%20Marc.jpg",
+   "13": "https://s3.amazonaws.com/ballotpedia-api4/files/thumbs/200/300/ScottBright.jpg",
+   "14": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBLzFTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--0c9240ecbd4ae088cff97b227aa60c5b2bf6ac83/Kipp,%20Cathy.jpg",
+   "15": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBL0ZTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--fcb333a05c84defed2c15ce0bdf8723c605199f3/Marchman,%20Janice.jpg",
+   "16": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBL2xTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--56397ac18c5c7504955ce6730cdb98acc6f36205/Kolker,%20Chris.jpg",
+   "18": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOUZTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--b064f9311bf3386a06c699ba6aeee37a07444669/Judy%20Amabile.jpg",
+   "19": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBL0pTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--4a370bf5b571c75e61965486b4074d0d108d80b8/Daugherty,%20Lindsey.jpg",
+   "20": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBL3BTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--f08a5431fd4e493fd52194b1418976fd5a250df8/Cutter,%20Lisa.jpg",
+   "21": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBMmlFQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--23746f2c8382ad88801fb500a0e47384becef5d8/Benavidez,%20Adrienne.jpg",
+   "22": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBK1JTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--444190d18434e86fd51db8d0f3656887bb45824b/Danielson,%20Jessie.jpg",
+   "23": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBKzlTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--b75364af53ed9e801f5b0adfea3ca5cd1bbb3cf9/Kirkmeyer,%20Barbara.jpg",
+   "24": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBK05TQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--c8a05176c5f582700250b8669d5df16c090a5d05/Mullica,%20Kyle.jpg",
+   "25": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBK1ZTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--5f021c807d11e6b00e9c2e987dd101e88185bee0/Lindstedt,%20William.jpg",
+   "26": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBeWhwQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--1f18e804077a78214975ed08168ecc3aa4c6f896/Bridges,Jeff.jpg",
+   "27": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOWxTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--85d8c976f450d3f48b1dbe66ac712d2be0f5e86b/Sullivan,Tom.jpg",
+   "28": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOUJTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--8f5c3253e6bdff26fefd8864913fd683300d7176/Weissman,Mike.jpg",
+   "29": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOXRTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--29b2053d4c36e8d2d5d661dd8e279ff5a4fa30e5/Iman_Jodeh.jpg",
+   "30": "https://i0.wp.com/coloradocommunitymedia.com/wp-content/uploads/2024/06/DCO-0613-Commissioner-D3-race-2.jpg?w=768&ssl=1",
+   "31": "https://images.squarespace-cdn.com/content/67330255adbf4c1a48d665b3/1732088535559-59YBHTFEFBLWVIPHRMDL/Matt+Ball+Headshot_park.jpeg?content-type=image%2Fjpeg",
+   "32": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOVZTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--1d263d3105ce58458603b07ad78a431ab0fa5a38/Rodriguez,Robert.jpg",
+   "33": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBKzVTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--7a5daba3d83289b2d6431d3200c1731a422d6091/Coleman,%20James%20.jpg",
+   "34": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOXBTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--f26a08c473c6f23699613abea473f8b3120e976c/Gonzales,%20Julie.jpg",
+   "35": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOU5TQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--08b2017b389fcad9ad2c05f5ffc23692931b3216/Pelton,%20Rod.jpg"
   }
+ },
+ "photo_source": "Portraits published by the Colorado General Assembly, linked from leg.colorado.gov; URLs via the Open States people dataset"
 }

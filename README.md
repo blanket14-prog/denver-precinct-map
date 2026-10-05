@@ -287,7 +287,9 @@ the same reason it has no portrait.
 dataset and, more usefully, cross-checks it against the roster: every one of
 the 100 seats agrees on surname and party, which is how the one real error was
 caught (Lorena Garcia should be Lorena García). House 32 is not in Open
-States at all, having been filled by appointment since their last update.
+States at all. That is a gap in their data, not a vacancy: Manny Rutinel won
+the seat unopposed in 2024. (An earlier version of this README guessed it had
+been filled by appointment; the election results in v46 showed otherwise.)
 
 "By party" recolours the districts from the same member file, blue for the
 Democratic seats and red for the Republican, with the chamber's split in the
@@ -299,7 +301,62 @@ heavier outline instead, because turning a Republican seat blue on click would
 be worse than useless. If the member file fails to load, party mode shades
 everything grey rather than guessing.
 
-## Zooming
+### On a phone
+
+At phone width the desktop layout left the map a strip between a panel across
+the top third and a detail bar across the bottom quarter, with the selected
+district half under one of them. Since v45:
+
+- The panel collapses to its title as soon as you pick a district or start
+  dragging the map, and reopens from the chevron or by tapping the title.
+- The detail bar becomes a compact card, portrait on the left and three short
+  lines on the right, about 110px instead of 190.
+- Zooming to a district measures what is actually covering the map -- the
+  panel down the left on a desktop, across the top on a phone, the card along
+  the bottom on both -- and frames the district in the space that is left.
+  This fixed the desktop too, where the panel used to sit over the western
+  edge of whatever you had picked.
+- Touch screens get no hover styling or tooltips. A tap fires mouseover, so the
+  tooltip appeared on tap and stayed stuck until the next one.
+- The roster's filter box is 16px on a phone, because iOS zooms the whole page
+  into any smaller input, and it no longer grabs focus when the list opens,
+  which raised the keyboard over half the list before anyone had chosen to type.
+- The map credit is shortened to one line so the card does not cover it.
+
+A phone held sideways is wider than 700px and keeps the desktop layout, which
+suits a short wide screen better than a panel across the top. The panel
+scrolls within the window there instead of running off the bottom.
+
+### Shading by margin of victory
+
+"By margin" colours each seat by how comfortably it was last won: the
+winner's party picks the hue and the size of the win picks how dark, in five
+steps -- under 5 points, 5-10, 10-20, 20-40, and 40 or more. A seat with no
+opponent on the ballot takes the darkest step. House 16, won by 3 votes out
+of 41,279, is the palest pink on the map.
+
+Steps rather than a continuous ramp because nobody can tell a 23-point blue
+from a 27-point one, but everyone can tell a seat decided by a handful of
+votes from one that was never in play. The fills are drawn nearly opaque in
+this mode, since at the usual transparency the basemap greys each step toward
+the next.
+
+Margin is (winner - runner-up) / all votes cast in the race, so a
+Libertarian's votes widen the denominator instead of being ignored. Under one
+point the detail card gives the lead in votes ("won by 3 votes"), because
+"0.01 points" hides how close it was.
+
+The data is `data/results.json`, built by `tools/build_results.py` from the
+Secretary of State's certified precinct returns as published by OpenElections.
+Every House seat was last on the ballot in November 2024. Senate terms are
+staggered, so 18 seats were last contested in 2024 and 17 in 2022; the legend
+says which. Colorado fills vacancies by appointment, so in twelve seats the
+person who won the last election is no longer the person holding it. The card
+says so ("Shannon Bird won it; Lori Goldstein was later appointed") rather
+than lending the appointee someone else's margin. In every one of those twelve
+the appointee is from the winner's party, so the colour is still right.
+
+
 
 The map moves in half zoom levels. A whole level doubles the scale, which over
 a county this size overshoots whatever you were looking at, so the +/- buttons,

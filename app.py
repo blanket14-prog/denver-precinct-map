@@ -40,11 +40,12 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "44"
+APP_VERSION = "46"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
-              "state_house.geojson", "state_senate.geojson", "legislators.json")
+              "state_house.geojson", "state_senate.geojson", "legislators.json",
+              "results.json")
 
 CONFIG_FILE = "config.json"
 _config_cache = {}
@@ -208,6 +209,7 @@ def state():
         house_url="/data/state_house.geojson?v=" + geojson_version("state_house.geojson"),
         senate_url="/data/state_senate.geojson?v=" + geojson_version("state_senate.geojson"),
         members_url="/data/legislators.json?v=" + geojson_version("legislators.json"),
+        results_url="/data/results.json?v=" + geojson_version("results.json"),
         version=APP_VERSION,
         ga_id=GA_ID,
         ga_path=request.path,

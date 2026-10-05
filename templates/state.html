@@ -116,15 +116,22 @@
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;
     margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.14)}
   .chamber{display:flex;gap:6px;padding:0 15px 12px}
+  #shade button{padding-left:4px;padding-right:4px}
+  .mlegend{padding:0 15px 12px;font-size:11px;color:var(--muted)}
+  .mlegend[hidden]{display:none}
+  .mlegend .mhead{margin-bottom:5px}
+  .mlegend .mgrid{display:grid;grid-template-columns:30px repeat(5,1fr);
+    gap:3px 3px;align-items:center;text-align:center;font-variant-numeric:tabular-nums}
+  .mlegend .mgrid i{display:block;height:13px;border-radius:2px;
+    box-shadow:0 0 0 1px rgba(0,0,0,.1)}
+  .mlegend .mp{text-align:left}
+  .mlegend .mfoot{margin-top:6px;line-height:1.35}
+  .detail #dElect{font-weight:500;white-space:normal;max-width:250px}
   .chamber button{flex:1;padding:7px 8px;font:inherit;font-size:12.5px;font-weight:550;
     color:var(--muted);background:#fff;border:1px solid var(--line);border-radius:6px;
     cursor:pointer}
   .chamber button:hover{border-color:var(--accent-soft);color:var(--accent)}
   .chamber button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  @media (max-width:700px){
-    .detail{flex-wrap:wrap;gap:8px 14px}
-    .detail .who{padding-left:0;border-left:0}
-  }
   .detail button{position:absolute;top:9px;right:9px;width:24px;height:24px;
     padding:0;font-size:16px;line-height:1;color:var(--muted);background:#fff;
     border:1px solid var(--line);border-radius:6px;cursor:pointer}
@@ -143,9 +150,69 @@
   .leaflet-control-zoom{border-radius:8px;border:1px solid var(--line);
     box-shadow:0 4px 16px rgba(20,30,45,.12);overflow:hidden}
 
+  .detail .meta{display:contents}
+  .panel .tog{display:none}
+  .panel{max-height:calc(100vh - 28px);max-height:calc(100dvh - 28px);
+    overflow-y:auto;overscroll-behavior:contain}
+  @media (max-height:560px){
+    .roster ul{max-height:calc(100vh - 290px);max-height:calc(100dvh - 290px);
+      min-height:120px}
+    /* The status line repeats what the detail card already says, and on a
+       sideways phone those 35px are the difference between the panel and
+       the card overlapping or not. */
+    .panel .note{display:none}
+    .detail{bottom:22px}
+  }
+
+  /* ---- phones ---------------------------------------------------------
+     On a 390px screen the desktop layout leaves the map a strip between a
+     panel that covers the top third and a detail bar that covers the bottom
+     quarter. So: the panel collapses to its title once you pick a district
+     or drag the map, the detail bar becomes a compact card, and the zoom-to
+     padding is measured from what is actually covering the map. */
   @media (max-width:700px){
-    .panel{width:auto;left:10px;right:64px;top:10px}
-    .detail{left:10px;right:10px;bottom:10px}
+    .panel{width:auto;left:8px;right:54px;top:8px}
+    .panel h1{padding-right:52px}
+    .panel .tog{display:flex;position:absolute;top:9px;right:9px;width:34px;height:34px;
+      padding:0;align-items:center;justify-content:center;font-size:13px;
+      color:var(--muted);background:#fff;border:1px solid var(--line);
+      border-radius:7px;cursor:pointer;line-height:1}
+    .panel .tog .chev{transition:transform .18s ease}
+    .panel.collapsed .tog .chev{transform:rotate(-90deg)}
+    .panel.collapsed h1{padding-bottom:13px;cursor:pointer}
+    .panel.collapsed h1 #count, .panel.collapsed h1 .hlinks{display:none}
+    .panel.collapsed > :not(h1){display:none}
+
+    /* iOS zooms the whole page into any input under 16px. */
+    .roster input{font-size:16px}
+    .roster ul{max-height:46vh}
+
+    .detail{left:8px;right:8px;bottom:22px;display:grid;
+      grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:3px;
+      align-items:center;padding:10px 42px 10px 10px}
+    .detail .face{grid-column:1;grid-row:1 / span 3;width:58px;height:58px;
+      align-self:start}
+    .detail .face[hidden] ~ *{grid-column:1 / -1}
+    .detail .dist{grid-column:2;display:flex;align-items:baseline;gap:7px}
+    .detail .dist .num{font-size:17px}
+    .detail .who{grid-column:2;padding-left:0;border-left:0}
+    .detail .who:not(#dSinceBox) > .lbl{display:none}
+    .detail .name{font-size:14.5px;white-space:normal}
+    .detail .note{max-width:none}
+    .detail .meta{grid-column:2;display:flex;flex-wrap:wrap;align-items:baseline;
+      gap:2px 10px;font-size:12px;color:var(--muted)}
+    .detail #dSinceBox{display:flex;align-items:baseline;gap:5px}
+    .detail #dElectBox{flex-basis:100%}
+    .detail #dElectBox[hidden]{display:none}
+    .detail #dElectBox > .lbl{display:none}
+    .detail #dElect{font-size:12px;color:var(--ink)}
+    .detail #dSinceBox[hidden]{display:none}
+    .detail #dSinceBox .lbl{font-size:12px;letter-spacing:0;text-transform:none}
+    .detail #dSince{font-size:12px;font-weight:500;color:var(--ink)}
+    .detail .stat{font-size:12px}
+    .detail button{top:8px;right:8px;width:30px;height:30px}
+
+    .leaflet-control-scale{display:none}
   }
 </style>
 </head>
@@ -154,6 +221,8 @@
 
 <div class="panel">
   <h1>
+    <button type="button" id="toggle" class="tog" aria-expanded="true"
+            title="Show or hide the controls"><span class="chev">&#9662;</span></button>
     Colorado Legislative Districts
     <span id="count">Loading districts&hellip;</span>
     <span class="hlinks">
@@ -179,12 +248,29 @@
     </div>
   </div>
   <div class="chamber" id="shade">
-    <button type="button" data-mode="mix" class="on" aria-pressed="true">Mixed colors</button>
+    <button type="button" data-mode="mix" class="on" aria-pressed="true">Mixed</button>
     <button type="button" data-mode="party" aria-pressed="false">By party</button>
+    <button type="button" data-mode="margin" aria-pressed="false">By margin</button>
   </div>
   <div class="legend" id="legend" hidden>
     <span><i style="background:#5b8fc9"></i><span id="legD">Democrat</span></span>
     <span><i style="background:#d4786f"></i><span id="legR">Republican</span></span>
+  </div>
+  <div class="mlegend" id="mlegend" hidden>
+    <div class="mhead">Won by, in points</div>
+    <div class="mgrid">
+      <span></span>
+      <span>&lt;5</span><span>5&ndash;10</span><span>10&ndash;20</span><span>20&ndash;40</span><span>40+</span>
+      <span class="mp">Dem</span>
+      <i style="background:#cfe0f3"></i><i style="background:#b2cceb"></i>
+      <i style="background:#7ea9d9"></i><i style="background:#4a7fbf"></i>
+      <i style="background:#1f4e8c"></i>
+      <span class="mp">Rep</span>
+      <i style="background:#f6d3ce"></i><i style="background:#f0b4ab"></i>
+      <i style="background:#e2867b"></i><i style="background:#c9564b"></i>
+      <i style="background:#8f2c25"></i>
+    </div>
+    <div class="mfoot" id="mfoot">Last general election for each seat.</div>
   </div>
   <div class="note" id="note">Click any district to zoom in and see its number.</div>
 </div>
@@ -192,7 +278,7 @@
 <div class="detail" id="detail" hidden>
   <button type="button" id="detailClose" aria-label="Close">&times;</button>
   <div class="face" id="dFace" hidden></div>
-  <div>
+  <div class="dist">
     <div class="lbl" id="dLbl">House District</div>
     <div class="num" id="dNum"></div>
   </div>
@@ -201,11 +287,18 @@
     <div class="name" id="dWho">&mdash;</div>
     <div class="note" id="dNote" hidden></div>
   </div>
-  <div class="who" id="dSinceBox" hidden>
-    <div class="lbl">In this seat</div>
-    <div class="name" id="dSince"></div>
+  <div class="meta">
+    <div class="who" id="dElectBox" hidden>
+      <div class="lbl">Last election</div>
+      <div class="name" id="dElect"></div>
+      <div class="note" id="dElectNote" hidden></div>
+    </div>
+    <div class="who" id="dSinceBox" hidden>
+      <div class="lbl">In this seat since</div>
+      <div class="name" id="dSince"></div>
+    </div>
+    <div class="stat" id="dArea"></div>
   </div>
-  <div class="stat" id="dArea"></div>
 </div>
 
 <script src="{{ url_for('static', filename='leaflet/leaflet.js') }}"></script>
@@ -226,14 +319,25 @@
   L.control.zoom({ position: "topright" }).addTo(map);
   L.control.scale({ imperial: true, metric: false, position: "bottomright" }).addTo(map);
 
+  // Phones get the compact layout (see the CSS); a device that cannot hover
+  // gets no hover styling or tooltips, because on a touchscreen a tap fires
+  // mouseover and the tooltip then sticks to the screen until the next tap.
+  var narrowMQ = window.matchMedia ? window.matchMedia("(max-width:700px)") : null;
+  function isNarrow() { return !!(narrowMQ && narrowMQ.matches); }
+  var NO_HOVER = !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
+
+  // The full credit wraps to three lines on a phone and sits under the
+  // detail card; the short form keeps both credits visible on one.
   L.tileLayer(
     "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
       "World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    { attribution:
-        'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
-        'Districts: U.S. Census Bureau TIGER/Line 2024',
+    { attribution: (isNarrow() || window.innerHeight <= 560)
+        ? '&copy; <a href="https://www.esri.com/">Esri</a> \u00b7 Census TIGER 2024'
+        : 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
+          'Districts: U.S. Census Bureau TIGER/Line 2024',
       maxNativeZoom: 16, maxZoom: 14 }
   ).addTo(map);
+  if (isNarrow() || window.innerHeight <= 560) map.attributionControl.setPrefix(false);
 
   var VersionBadge = L.Control.extend({
     onAdd: function () {
@@ -263,25 +367,58 @@
   var NO_PARTY = "#cfd6dd";       // member list missing or not yet loaded
   var shadeMode = "mix";
 
+  // By-margin shading: the winner's party picks the hue, the size of the win
+  // picks how dark. Five steps rather than a continuous ramp, because nobody
+  // can tell a 23-point blue from a 27-point one, but everyone can tell a
+  // seat that was decided by a handful of votes from one that was never in
+  // play. A seat with nobody on the ballot against the winner takes the
+  // darkest step.
+  var MARGIN_STEPS = [5, 10, 20, 40];
+  var RAMP = {
+    D: ["#cfe0f3", "#b2cceb", "#7ea9d9", "#4a7fbf", "#1f4e8c"],
+    R: ["#f6d3ce", "#f0b4ab", "#e2867b", "#c9564b", "#8f2c25"]
+  };
+  var results = null;            // {house:{d:{...}}, senate:{...}}
+
+  function resultFor(d) {
+    return (results && results[chamber] && results[chamber][String(d)]) || null;
+  }
+  function marginStep(r) {
+    if (r.uncontested) return 4;
+    for (var i = 0; i < MARGIN_STEPS.length; i++) {
+      if (r.margin < MARGIN_STEPS[i]) return i;
+    }
+    return 4;
+  }
+
   function partyOf(d) {
     var row = members && members[chamber] && members[chamber][String(d)];
     return row ? row[1] : null;
   }
   function fillFor(p) {
+    if (shadeMode === "margin") {
+      var r = resultFor(p.d);
+      var ramp = r && RAMP[r.party];
+      return ramp ? ramp[marginStep(r)] : NO_PARTY;
+    }
     if (shadeMode !== "party") return FILL[p.d % FILL.length];
     return PARTY_FILL[partyOf(p.d)] || NO_PARTY;
   }
 
+  // A graded ramp only reads if the fill is close to opaque; at the usual
+  // .62 the basemap greys every step toward the next.
+  function fillAlpha() { return shadeMode === "margin" ? .88 : .62; }
+
   var BASE = function (p) {
     return { color: "#2f6fa8", weight: 1, opacity: .85,
-             fillColor: fillFor(p), fillOpacity: .62 };
+             fillColor: fillFor(p), fillOpacity: fillAlpha() };
   };
   var HOVER = { color: "#13406b", weight: 2.5, opacity: 1, fillOpacity: .80 };
   // A function, not a constant: in party mode a selected district has to keep
   // its own colour, or picking a Republican seat would turn it blue.
   function PICKED(p) {
     return { color: "#13406b", weight: 3.5, opacity: 1,
-             fillColor: fillFor(p), fillOpacity: .85 };
+             fillColor: fillFor(p), fillOpacity: shadeMode === "margin" ? .97 : .85 };
   }
 
   var CHAMBERS = {
@@ -300,6 +437,30 @@
   var picked = null, home = null;
 
   var note = document.getElementById("note");
+  var panelEl = document.querySelector(".panel");
+  var toggleBtn = document.getElementById("toggle");
+
+  function setCollapsed(c) {
+    panelEl.classList.toggle("collapsed", !!c);
+    toggleBtn.setAttribute("aria-expanded", c ? "false" : "true");
+  }
+  toggleBtn.addEventListener("click", function (e) {
+    e.stopPropagation();
+    setCollapsed(!panelEl.classList.contains("collapsed"));
+  });
+  // Collapsed, the whole title row is the target, not just the 34px button.
+  panelEl.querySelector("h1").addEventListener("click", function (e) {
+    if (!panelEl.classList.contains("collapsed")) return;
+    if (e.target.closest && e.target.closest("a")) return;
+    setCollapsed(false);
+  });
+  // A desktop window narrowed and widened again must not stay collapsed,
+  // since the desktop layout has no button to reopen it.
+  if (narrowMQ) {
+    var onWidth = function () { if (!isNarrow()) setCollapsed(false); };
+    if (narrowMQ.addEventListener) narrowMQ.addEventListener("change", onWidth);
+    else if (narrowMQ.addListener) narrowMQ.addListener(onWidth);
+  }
   var detail = document.getElementById("detail");
   var countEl = document.getElementById("count");
 
@@ -311,6 +472,7 @@
   function fillMember(d) {
     fillFace(d);
     fillSince(d);
+    fillElection(d);
     var who = document.getElementById("dWho");
     var noteEl = document.getElementById("dNote");
     var row = members && members[chamber] && members[chamber][String(d)];
@@ -342,6 +504,44 @@
     return MONTHS[+m[2] - 1] + " " + (+m[3]) + ", " + m[1];
   }
 
+  function surname(n) {
+    var parts = String(n || "").replace(/,.*$/, "").trim().split(/\s+/);
+    return (parts[parts.length - 1] || "").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  // One line on how the seat was last won. Under a point the vote count is
+  // the honest unit ("by 3 votes"); above it, points.
+  function fillElection(d) {
+    var box = document.getElementById("dElectBox");
+    var noteEl = document.getElementById("dElectNote");
+    var r = resultFor(d);
+    if (!r) { box.hidden = true; return; }
+    var text;
+    if (r.uncontested) {
+      text = "Uncontested, " + r.year;
+    } else {
+      var lead = r.votes - r.runner_votes;
+      var by = r.margin < 1
+        ? lead.toLocaleString() + (lead === 1 ? " vote" : " votes")
+        : r.margin.toFixed(1) + " points";
+      text = "Won by " + by + " over " + r.runner + ", " + r.year;
+    }
+    document.getElementById("dElect").textContent = text;
+
+    // In a dozen seats the winner has since resigned and an appointee holds
+    // the seat. Say whose margin this is rather than lending it to them.
+    var row = members && members[chamber] && members[chamber][String(d)];
+    if (row && surname(row[0]) !== surname(r.winner)) {
+      noteEl.textContent = r.winner + " won it; " + row[0] +
+                           " was later appointed to the seat.";
+      noteEl.hidden = false;
+    } else {
+      noteEl.hidden = true;
+    }
+    box.hidden = false;
+  }
+
   function fillSince(d) {
     var box = document.getElementById("dSinceBox");
     var since = members && members.since && members.since[chamber];
@@ -365,6 +565,23 @@
     face.appendChild(node);
   }
 
+  // Frame a district in the part of the map nobody is covering. On a desktop
+  // the panel sits down the left side; on a phone it sits across the top; on
+  // both the detail card sits along the bottom once a district is picked.
+  // A fixed padding put the selected district partly under one or the other.
+  function fitPadding(base) {
+    var m = map.getContainer().getBoundingClientRect();
+    var tl = [base, base], br = [base, base];
+    var pr = panelEl.getBoundingClientRect();
+    if (isNarrow()) tl[1] = Math.max(tl[1], pr.bottom - m.top + 12);
+    else tl[0] = Math.max(tl[0], pr.right - m.left + 16);
+    if (!detail.hidden) {
+      var dr = detail.getBoundingClientRect();
+      br[1] = Math.max(br[1], m.bottom - dr.top + 12);
+    }
+    return { paddingTopLeft: tl, paddingBottomRight: br, duration: .7 };
+  }
+
   function show(layer) {
     if (picked && picked !== layer) picked.setStyle(BASE(picked.feature.properties));
     picked = layer;
@@ -378,8 +595,11 @@
     fillMember(p.d);
     syncRosterLabel();
     markRoster();
+    // Collapse before measuring: on a phone the panel shrinks to its title,
+    // and the district should be framed in the space that frees up.
+    if (isNarrow()) { openRoster(false); setCollapsed(true); }
     detail.hidden = false;
-    map.flyToBounds(layer.getBounds(), { padding: [40, 40], duration: .7 });
+    map.flyToBounds(layer.getBounds(), fitPadding(40));
     track("district_view", { chamber: chamber, district: p.d });
   }
 
@@ -412,6 +632,13 @@
 
   function syncLegend() {
     var legend = document.getElementById("legend");
+    var mlegend = document.getElementById("mlegend");
+    mlegend.hidden = shadeMode !== "margin";
+    if (!mlegend.hidden) {
+      document.getElementById("mfoot").textContent = chamber === "house"
+        ? "Last general election: November 2024 for every House seat."
+        : "Last general election: 2024 for 18 Senate seats, 2022 for the other 17.";
+    }
     legend.hidden = shadeMode !== "party";
     if (legend.hidden) return;
     var c = partyCounts();
@@ -561,7 +788,9 @@
     if (!open) return;
     rosterQ.value = "";
     filterRoster();
-    rosterQ.focus();
+    // On a phone, focusing the box raises the keyboard over half the list
+    // before anyone has decided to type; there, scrolling is the default.
+    if (!isNarrow()) rosterQ.focus();
     // Open on the selected member rather than at district 1, so reopening the
     // list after picking 58 does not mean scrolling back down to find it.
     var on = rosterList.querySelector("button.on");
@@ -633,6 +862,14 @@
   }
   map.on("zoomend moveend", syncLabels);
 
+  // On a phone, starting to pan is the sign someone wants the map, not the
+  // controls -- the same convention as the bottom sheet in a maps app.
+  map.on("dragstart", function () {
+    if (!isNarrow()) return;
+    if (!rosterEl.hidden) openRoster(false);
+    setCollapsed(true);
+  });
+
   // ---- building a chamber ------------------------------------------------
 
   function build(ch, geo) {
@@ -646,16 +883,18 @@
         style: BASE(f.properties),
         onEachFeature: function (_, lyr) {
           var who = (members && members[ch] && members[ch][String(f.properties.d)]);
-          lyr.bindTooltip(CHAMBERS[ch].label + " " + f.properties.d +
-                          (who ? " \u00b7 " + who[0] + " (" + who[1] + ")" : ""),
-                          { sticky: true, direction: "top", opacity: .9 });
-          lyr.on({
-            mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
-            mouseout:  function () { if (lyr !== picked) lyr.setStyle(BASE(f.properties)); },
-            click: function () {
-              if (lyr === picked) { clearPick(); say(IDLE); return; }
-              show(lyr);
-            }
+          if (!NO_HOVER) {
+            lyr.bindTooltip(CHAMBERS[ch].label + " " + f.properties.d +
+                            (who ? " \u00b7 " + who[0] + " (" + who[1] + ")" : ""),
+                            { sticky: true, direction: "top", opacity: .9 });
+            lyr.on({
+              mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
+              mouseout:  function () { if (lyr !== picked) lyr.setStyle(BASE(f.properties)); }
+            });
+          }
+          lyr.on("click", function () {
+            if (lyr === picked) { clearPick(); say(IDLE); return; }
+            show(lyr);
           });
         }
       });
@@ -684,10 +923,15 @@
   var membersReq = null;
   function getMembers() {
     if (!membersReq) {
-      membersReq = fetch("{{ members_url }}")
-        .then(function (res) { return res.ok ? res.json() : null; })
-        .then(function (j) { members = j; return j; })
-        .catch(function () { return null; });   // names are a nicety, not the map
+      // Names and results are niceties, not the map: if either fails the
+      // boundaries still draw and the affected line simply does not appear.
+      var soft = function (url) {
+        return fetch(url)
+          .then(function (res) { return res.ok ? res.json() : null; })
+          .catch(function () { return null; });
+      };
+      membersReq = Promise.all([soft("{{ members_url }}"), soft("{{ results_url }}")])
+        .then(function (out) { members = out[0]; results = out[1]; return members; });
     }
     return membersReq;
   }
@@ -774,7 +1018,8 @@
 
   document.getElementById("reset").addEventListener("click", function () {
     clearPick();
-    if (home) map.flyToBounds(home, { padding: [20, 20], duration: .7 });
+    if (home) map.flyToBounds(home, isNarrow() ? fitPadding(12)
+                                               : { padding: [20, 20], duration: .7 });
     say(IDLE);
   });
 

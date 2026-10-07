@@ -116,6 +116,24 @@
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;
     margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.14)}
   .chamber{display:flex;gap:6px;padding:0 15px 12px}
+  .panel .addr{display:flex;gap:7px;padding:0 15px 12px}
+  .panel .addr input{flex:1;min-width:0;padding:8px 10px;font:inherit;
+    font-size:13px;color:var(--ink);border:1px solid var(--line);
+    border-radius:6px;background:#fbfcfd}
+  .panel .addr input:focus{outline:none;border-color:var(--accent-soft);
+    box-shadow:0 0 0 3px rgba(74,144,196,.15)}
+  .panel .addr button{padding:8px 13px;font:inherit;font-size:13px;
+    font-weight:550;color:#fff;background:var(--accent);border:0;
+    border-radius:6px;cursor:pointer}
+  .panel .addr button:hover{background:#27608f}
+  .panel .addr button:disabled{opacity:.6;cursor:default}
+  .detail #dAddr{font-weight:500;white-space:normal;max-width:250px}
+  .detail .also{display:block;margin-top:2px;padding:0;font:inherit;
+    font-size:12px;font-weight:500;color:var(--accent);background:none;
+    border:0;cursor:pointer;text-align:left;text-decoration:underline;
+    text-underline-offset:2px}
+  .detail .also[hidden]{display:none}
+  .detail .note.warn{color:#9a5a12}
   #shade button{padding-left:4px;padding-right:4px}
   .mlegend{padding:0 15px 12px;font-size:11px;color:var(--muted)}
   .mlegend[hidden]{display:none}
@@ -132,16 +150,23 @@
     cursor:pointer}
   .chamber button:hover{border-color:var(--accent-soft);color:var(--accent)}
   .chamber button.on{background:var(--accent);border-color:var(--accent);color:#fff}
-  .detail button{position:absolute;top:9px;right:9px;width:24px;height:24px;
+  /* Scoped to the close button: as ".detail button" this also caught the
+     "Also in Senate District" link and stacked it on top of the X. */
+  .detail #detailClose{position:absolute;top:9px;right:9px;width:24px;height:24px;
     padding:0;font-size:16px;line-height:1;color:var(--muted);background:#fff;
     border:1px solid var(--line);border-radius:6px;cursor:pointer}
-  .detail button:hover{border-color:var(--accent-soft);color:var(--accent)}
+  .detail #detailClose:hover{border-color:var(--accent-soft);color:var(--accent)}
 
   .dnum{
     font:700 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
          Helvetica,Arial,sans-serif;
     color:#13406b;white-space:nowrap;
     -webkit-text-stroke:3px rgba(255,255,255,.92);paint-order:stroke fill;
+    /* Centre the number on its label point. A divIcon with no iconSize puts
+       its top-left corner on the point, so every number used to sit about
+       6px right and 12px below where it was placed -- invisible in a big
+       district, but enough to push House 55's number onto its own edge. */
+    display:block;transform:translate(-50%,-50%);
   }
   .verbadge{background:rgba(255,255,255,.85);border-radius:3px;padding:1px 6px;
     font-size:10.5px;line-height:1.5;color:#7a828c;
@@ -185,6 +210,10 @@
 
     /* iOS zooms the whole page into any input under 16px. */
     .roster input{font-size:16px}
+    .panel .addr input{font-size:16px}
+    .detail #dAddrBox{flex-basis:100%}
+    .detail #dAddrBox[hidden]{display:none}
+    .detail #dAddr{font-size:12px;color:var(--ink);max-width:none}
     .roster ul{max-height:46vh}
 
     .detail{left:8px;right:8px;bottom:22px;display:grid;
@@ -210,7 +239,7 @@
     .detail #dSinceBox .lbl{font-size:12px;letter-spacing:0;text-transform:none}
     .detail #dSince{font-size:12px;font-weight:500;color:var(--ink)}
     .detail .stat{font-size:12px}
-    .detail button{top:8px;right:8px;width:30px;height:30px}
+    .detail #detailClose{top:8px;right:8px;width:30px;height:30px}
 
     .leaflet-control-scale{display:none}
   }
@@ -234,6 +263,11 @@
     <button type="button" data-ch="house" class="on">House &middot; 65</button>
     <button type="button" data-ch="senate">Senate &middot; 35</button>
   </div>
+  <form class="addr" id="addrForm" autocomplete="off">
+    <input id="addrQ" type="text" placeholder="Look up an address"
+           aria-label="Address to look up" enterkeyhint="search">
+    <button type="submit" id="addrBtn">Go</button>
+  </form>
   <div class="row">
     <button type="button" id="rosterBtn" class="rosterbtn"
             aria-expanded="false" aria-controls="roster">
@@ -288,6 +322,12 @@
     <div class="note" id="dNote" hidden></div>
   </div>
   <div class="meta">
+    <div class="who" id="dAddrBox" hidden>
+      <div class="lbl">Address</div>
+      <div class="name" id="dAddr"></div>
+      <button type="button" class="also" id="dAlso" hidden></button>
+      <div class="note warn" id="dAddrWarn" hidden></div>
+    </div>
     <div class="who" id="dElectBox" hidden>
       <div class="lbl">Last election</div>
       <div class="name" id="dElect"></div>
@@ -354,6 +394,17 @@
   map.getPane("dlabels").style.zIndex = 460;
   map.getPane("dlabels").style.pointerEvents = "none";
 
+  // The selected district's outline gets its own pane, above every fill and
+  // below the numbers, so no neighbour can paint over it.
+  map.createPane("dsel");
+  map.getPane("dsel").style.zIndex = 450;
+  map.getPane("dsel").style.pointerEvents = "none";
+
+  // A looked-up address is pinned above everything, numbers included.
+  map.createPane("dpin");
+  map.getPane("dpin").style.zIndex = 470;
+  map.getPane("dpin").style.pointerEvents = "none";
+
   // Five hues cycled by district number. With 65 districts a unique colour
   // each would be indistinguishable mud; what matters is that neighbours
   // differ, and the number is printed on every one anyway.
@@ -409,16 +460,49 @@
   // .62 the basemap greys every step toward the next.
   function fillAlpha() { return shadeMode === "margin" ? .88 : .62; }
 
+  // Outlines. The thin blue line works over the pale mixed palette and
+  // vanishes over the party and margin colours: dark blue on dark blue, and
+  // a blue seam between two reds that reads as a third colour. In those
+  // modes the borders are white, the usual choropleth convention, which
+  // separates two neighbours of the same shade without competing with them.
+  function shaded() { return shadeMode === "party" || shadeMode === "margin"; }
+
   var BASE = function (p) {
-    return { color: "#2f6fa8", weight: 1, opacity: .85,
-             fillColor: fillFor(p), fillOpacity: fillAlpha() };
+    return shaded()
+      ? { color: "#ffffff", weight: 1.4, opacity: .9,
+          fillColor: fillFor(p), fillOpacity: fillAlpha() }
+      : { color: "#2f6fa8", weight: 1, opacity: .85,
+          fillColor: fillFor(p), fillOpacity: fillAlpha() };
   };
-  var HOVER = { color: "#13406b", weight: 2.5, opacity: 1, fillOpacity: .80 };
+  function HOVER() {
+    return shaded()
+      ? { color: "#ffffff", weight: 3, opacity: 1 }
+      : { color: "#13406b", weight: 2.5, opacity: 1, fillOpacity: .80 };
+  }
   // A function, not a constant: in party mode a selected district has to keep
-  // its own colour, or picking a Republican seat would turn it blue.
+  // its own colour, or picking a Republican seat would turn it blue. Its
+  // outline is drawn separately (see haloFor) so it reads on any fill.
   function PICKED(p) {
-    return { color: "#13406b", weight: 3.5, opacity: 1,
-             fillColor: fillFor(p), fillOpacity: shadeMode === "margin" ? .97 : .85 };
+    var b = BASE(p);
+    b.fillOpacity = shadeMode === "margin" ? .97 : .85;
+    return b;
+  }
+
+  // The selected district is outlined twice, a wide white line under a
+  // narrower near-black one. Any single colour disappears against some fill
+  // on this map -- navy on the darkest blue, white on the palest -- but the
+  // pair always has one edge that contrasts.
+  var halo = null;
+  function haloFor(layer) {
+    if (halo) { map.removeLayer(halo); halo = null; }
+    if (!layer) return;
+    var f = layer.feature;
+    halo = L.featureGroup([
+      L.geoJSON(f, { pane: "dsel", interactive: false,
+                     style: { color: "#ffffff", weight: 7, opacity: .95, fill: false } }),
+      L.geoJSON(f, { pane: "dsel", interactive: false,
+                     style: { color: "#0d2236", weight: 2.6, opacity: 1, fill: false } })
+    ]).addTo(map);
   }
 
   var CHAMBERS = {
@@ -470,6 +554,7 @@
   // ---- detail bar ---------------------------------------------------------
 
   function fillMember(d) {
+    fillAddr(d);
     fillFace(d);
     fillSince(d);
     fillElection(d);
@@ -588,6 +673,7 @@
     layer.bringToFront();
     var p = layer.feature.properties;
     layer.setStyle(PICKED(p));
+    haloFor(layer);
     document.getElementById("dLbl").textContent = CHAMBERS[chamber].label;
     document.getElementById("dNum").textContent = p.d;
     document.getElementById("dArea").textContent =
@@ -606,6 +692,7 @@
   function clearPick() {
     if (picked) picked.setStyle(BASE(picked.feature.properties));
     picked = null;
+    haloFor(null);
     syncRosterLabel();
     markRoster();
     detail.hidden = true;
@@ -888,7 +975,7 @@
                             (who ? " \u00b7 " + who[0] + " (" + who[1] + ")" : ""),
                             { sticky: true, direction: "top", opacity: .9 });
             lyr.on({
-              mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER); },
+              mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER()); },
               mouseout:  function () { if (lyr !== picked) lyr.setStyle(BASE(f.properties)); }
             });
           }
@@ -935,6 +1022,184 @@
     }
     return membersReq;
   }
+
+  // ---- address lookup ----------------------------------------------------
+
+  // The point is tested against the same polygons the map draws, so the
+  // answer can never disagree with what is on screen. Both chambers are
+  // checked at once: anyone asking which House district an address is in
+  // usually wants the Senate district too.
+  var addr = null;     // {lat, lon, name, d:{house, senate}, edge:{house, senate}}
+  var addrPin = null;
+  var addrBtn = document.getElementById("addrBtn");
+  var addrQ = document.getElementById("addrQ");
+
+  function ringHas(ring, x, y) {
+    var inside = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+  // Holes matter here: House 54 surrounds House 55 and has a hole where 55
+  // sits, so a Grand Junction address is inside 54's outer ring but not 54.
+  function polyHas(rings, x, y) {
+    if (!ringHas(rings[0], x, y)) return false;
+    for (var k = 1; k < rings.length; k++) if (ringHas(rings[k], x, y)) return false;
+    return true;
+  }
+  function geomHas(g, x, y) {
+    if (g.type === "Polygon") return polyHas(g.coordinates, x, y);
+    if (g.type === "MultiPolygon") {
+      for (var i = 0; i < g.coordinates.length; i++) {
+        if (polyHas(g.coordinates[i], x, y)) return true;
+      }
+    }
+    return false;
+  }
+
+  // Metres from the point to the nearest edge of the district, on a local
+  // flat projection, which is plenty at the scale of a city block.
+  function edgeMetres(g, lon, lat) {
+    var kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540, best = Infinity;
+    var polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+    polys.forEach(function (rings) {
+      rings.forEach(function (ring) {
+        for (var i = 1; i < ring.length; i++) {
+          var ax = (ring[i - 1][0] - lon) * kx, ay = (ring[i - 1][1] - lat) * ky;
+          var bx = (ring[i][0] - lon) * kx, by = (ring[i][1] - lat) * ky;
+          var dx = bx - ax, dy = by - ay, len = dx * dx + dy * dy;
+          var t = len ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len)) : 0;
+          var px = ax + t * dx, py = ay + t * dy;
+          best = Math.min(best, Math.sqrt(px * px + py * py));
+        }
+      });
+    });
+    return best;
+  }
+
+  function districtAt(ch, lon, lat) {
+    var g = cache[ch];
+    if (!g) return null;
+    var ll = L.latLng(lat, lon);
+    for (var d in g.byNum) {
+      var lyr = g.byNum[d];
+      if (!lyr.getBounds().contains(ll)) continue;
+      if (geomHas(lyr.feature.geometry, lon, lat)) {
+        return { d: +d, edge: edgeMetres(lyr.feature.geometry, lon, lat) };
+      }
+    }
+    return null;
+  }
+
+  function setPin(lat, lon) {
+    if (addrPin) map.removeLayer(addrPin);
+    addrPin = L.circleMarker([lat, lon], {
+      pane: "dpin", interactive: false, radius: 7, weight: 2.5,
+      color: "#ffffff", fillColor: "#e0731f", fillOpacity: 1
+    }).addTo(map);
+  }
+
+  function clearAddr() {
+    addr = null;
+    if (addrPin) { map.removeLayer(addrPin); addrPin = null; }
+    document.getElementById("dAddrBox").hidden = true;
+  }
+
+  function selectAddr() {
+    if (!addr) return;
+    var n = addr.d[chamber], lyr = n && byNum[n];
+    if (!lyr) {
+      clearPick();
+      map.flyTo([addr.lat, addr.lon], 10, { duration: .6 });
+      say(addr.name + " is not inside any " + CHAMBERS[chamber].label + ".");
+      return;
+    }
+    show(lyr);
+    say(addr.name);
+  }
+
+  // A boundary often runs down the middle of a street, and a geocoded point
+  // can sit a few tens of metres from the true front door; an address that
+  // close to a line gets a warning rather than false confidence.
+  var NEAR_EDGE_M = 60;
+
+  function fillAddr(d) {
+    var box = document.getElementById("dAddrBox");
+    if (!addr || addr.d[chamber] !== d) { box.hidden = true; return; }
+    document.getElementById("dAddr").textContent = addr.name;
+
+    var other = chamber === "house" ? "senate" : "house";
+    var on = addr.d[other], also = document.getElementById("dAlso");
+    if (on) {
+      var row = members && members[other] && members[other][String(on)];
+      also.textContent = "Also in " + CHAMBERS[other].label + " " + on +
+                         (row ? " \u00b7 " + row[0] + " (" + row[1] + ")" : "");
+      also.hidden = false;
+    } else {
+      also.hidden = true;
+    }
+
+    var warn = document.getElementById("dAddrWarn");
+    var near = Math.min(addr.edge.house == null ? Infinity : addr.edge.house,
+                        addr.edge.senate == null ? Infinity : addr.edge.senate);
+    if (near < NEAR_EDGE_M) {
+      warn.textContent = "About " + Math.max(5, Math.round(near / 5) * 5) +
+        " m from a district line. Confirm with the county clerk before relying on it.";
+      warn.hidden = false;
+    } else {
+      warn.hidden = true;
+    }
+    box.hidden = false;
+  }
+
+  document.getElementById("dAlso").addEventListener("click", function () {
+    switchTo(chamber === "house" ? "senate" : "house", false);
+  });
+  document.getElementById("detailClose").addEventListener("click", clearAddr);
+
+  document.getElementById("addrForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var q = addrQ.value.trim();
+    if (!q) { say("Enter an address or a place in Colorado."); return; }
+    addrBtn.disabled = true;
+    say("Looking up that address\u2026");
+    fetch("/api/geocode?scope=co&q=" + encodeURIComponent(q))
+      .then(function (res) {
+        return res.json().then(function (j) { return { ok: res.ok, j: j }; });
+      })
+      .then(function (r) {
+        if (!r.ok || r.j.error) throw new Error(r.j.error || "lookup failed");
+        // Both chambers are needed for the answer, whichever one is showing.
+        return Promise.all([load("house"), load("senate")]).then(function () { return r.j; });
+      })
+      .then(function (hit) {
+        var h = districtAt("house", hit.lon, hit.lat);
+        var sn = districtAt("senate", hit.lon, hit.lat);
+        clearPick();
+        setPin(hit.lat, hit.lon);
+        // Kind of result only. The address itself never goes to analytics.
+        track("address_search", { result: h || sn ? "found" : "outside" });
+        if (!h && !sn) {
+          addr = null;
+          map.flyTo([hit.lat, hit.lon], 9, { duration: .6 });
+          say("Found " + (hit.name || q) + ", but it is not inside a Colorado legislative district.");
+          return;
+        }
+        addr = { lat: hit.lat, lon: hit.lon, name: hit.name || q,
+                 d: { house: h && h.d, senate: sn && sn.d },
+                 edge: { house: h && h.edge, senate: sn && sn.edge } };
+        if (!rosterEl.hidden) openRoster(false);
+        selectAddr();
+      })
+      .catch(function (err) {
+        say("Could not find that address. " + (err.message || err));
+      })
+      .then(function () { addrBtn.disabled = false; });
+  });
 
   function detach() {
     if (layers) map.removeLayer(layers);
@@ -998,9 +1263,9 @@
     load(ch).then(function () {
       clearPick();
       detach();
-      attach(ch, fit !== false);
-      say(IDLE);
+      attach(ch, fit !== false && !addr);
       switching = false;
+      if (addr) selectAddr(); else say(IDLE);
       track("chamber_switch", { chamber: ch });
     }).catch(function (err) {
       markButtons(chamber);
@@ -1018,6 +1283,7 @@
 
   document.getElementById("reset").addEventListener("click", function () {
     clearPick();
+    clearAddr();
     if (home) map.flyToBounds(home, isNarrow() ? fitPadding(12)
                                                : { padding: [20, 20], duration: .7 });
     say(IDLE);

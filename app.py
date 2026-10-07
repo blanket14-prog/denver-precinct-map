@@ -30,6 +30,15 @@ USER_AGENT = os.environ.get(
     "denver-precinct-map/1.0 (https://github.com/blanket14-prog/denver-precinct-map)",
 )
 DENVER_VIEWBOX = "-105.11,39.914,-104.59,39.61"
+# The statewide map looks addresses up anywhere in Colorado. The Census
+# geocoder is tried first: it matches against the same TIGER address ranges
+# the district boundaries come from, and it is markedly better than OSM at
+# rural street addresses. Nominatim is the fallback, for place names and
+# landmarks ("Grand Junction", "Red Rocks") that the Census matcher rejects.
+CENSUS_GEOCODER = ("https://geocoding.geo.census.gov/geocoder/locations/"
+                   "onelineaddress")
+COLORADO_VIEWBOX = "-109.06,41.01,-102.04,36.99"
+_STATE_HINT = re.compile(r"(,\s*co\b|\bcolorado\b|\bco\s+\d{5})", re.I)
 
 _geo_lock = threading.Lock()
 _geo_last = [0.0]
@@ -40,7 +49,7 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "46"
+APP_VERSION = "47"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
@@ -335,30 +344,75 @@ def _maybe_gzip(resp):
     return resp
 
 
+def _census_lookup(q):
+    """Census one-line geocoder. Returns {lat, lon, name} or None."""
+    params = urllib.parse.urlencode({
+        "address": q, "benchmark": "Public_AR_Current", "format": "json",
+    })
+    req = urllib.request.Request(CENSUS_GEOCODER + "?" + params, headers={
+        "User-Agent": USER_AGENT, "Accept": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        app.logger.warning("CENSUS GEOCODE failed: %s", exc)
+        return None
+    for hit in (payload.get("result") or {}).get("addressMatches") or []:
+        comp = hit.get("addressComponents") or {}
+        if comp.get("state") != "CO":
+            continue                     # same street name in another state
+        try:
+            return {"lat": float(hit["coordinates"]["y"]),
+                    "lon": float(hit["coordinates"]["x"]),
+                    "name": hit.get("matchedAddress", "").title()
+                               .replace(", Co, ", ", CO "),
+                    "source": "census"}
+        except (KeyError, TypeError, ValueError):
+            continue
+    return None
+
+
 @app.route("/api/geocode")
 def geocode():
-    """Street address -> {lat, lon, name}, restricted to the Denver area."""
+    """Street address -> {lat, lon, name}.
+
+    Restricted to the Denver area by default. With scope=co it covers all of
+    Colorado, for the statewide legislative map, trying the Census geocoder
+    before Nominatim."""
     q = (request.args.get("q") or "").strip()
     if not q:
         return jsonify({"error": "empty query"}), 400
     if len(q) > 200:
         return jsonify({"error": "query too long"}), 400
+    statewide = request.args.get("scope") == "co"
 
-    key = q.lower()
+    key = ("co:" if statewide else "") + q.lower()
     if key in _geo_cache:
         return jsonify(_geo_cache[key])
 
-    query = q
-    low = q.lower()
-    if "denver" not in low and ", co" not in low and "colorado" not in low:
-        query = q + ", Denver, Colorado"
+    if statewide:
+        query = q if _STATE_HINT.search(q) else q + ", CO"
+        hit = _census_lookup(query)
+        if hit:
+            if len(_geo_cache) < GEO_CACHE_MAX:
+                _geo_cache[key] = hit
+            return jsonify(hit)
+
+    if statewide:
+        query = q if _STATE_HINT.search(q) else q + ", Colorado"
+    else:
+        query = q
+        low = q.lower()
+        if "denver" not in low and ", co" not in low and "colorado" not in low:
+            query = q + ", Denver, Colorado"
 
     params = urllib.parse.urlencode({
         "q": query,
         "format": "jsonv2",
         "limit": "1",
         "countrycodes": "us",
-        "viewbox": DENVER_VIEWBOX,
+        "viewbox": COLORADO_VIEWBOX if statewide else DENVER_VIEWBOX,
         "bounded": "1",
         "addressdetails": "0",
     })
@@ -386,7 +440,8 @@ def geocode():
 
     if not payload:
         app.logger.info("GEOCODE no match for %r", query)
-        return jsonify({"error": "no match in the Denver area"}), 404
+        return jsonify({"error": "no match in %s" % (
+            "Colorado" if statewide else "the Denver area")}), 404
 
     hit = payload[0]
     try:
@@ -394,6 +449,7 @@ def geocode():
             "lat": float(hit["lat"]),
             "lon": float(hit["lon"]),
             "name": hit.get("display_name", "").split(", United States")[0],
+            "source": "osm",
         }
     except (KeyError, TypeError, ValueError) as exc:
         app.logger.error("GEOCODE bad payload for %r: %s", query, exc)

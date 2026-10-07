@@ -370,6 +370,46 @@ Leaflet keeps serving tiles from the nearer whole level and scales them, which
 is a slight softening of the basemap; the precincts, outlines and numbers are
 drawn from geometry and stay sharp at any zoom.
 
+### Looking up an address
+
+The statewide map has its own address box. Type an address or a place name
+anywhere in Colorado and it drops a pin, selects the House or Senate district
+it falls in, and the detail card names the district in the other chamber with
+a link across ("Also in Senate District 31 · Matt Ball (D)"). Switching
+chambers keeps the pin and selects its district there.
+
+The lookup goes through `/api/geocode?scope=co`, the same endpoint the Denver
+map uses with a statewide scope added; the Denver map's behaviour is
+unchanged. Statewide, the Census geocoder is tried first, because it matches
+against the TIGER address ranges the district boundaries come from and is far
+better than OpenStreetMap at rural street addresses. Nominatim is the
+fallback, for place names like "Grand Junction" that the Census matcher
+rejects. A Census match in another state is ignored.
+
+The district is found in the browser, by testing the point against the same
+polygons the map draws, so the answer can never disagree with the picture.
+The test honours holes: House 54 surrounds House 55 and has a hole where 55
+sits, so a Grand Junction address lands in 55, not 54.
+
+A geocoded point is an estimate, often placed near the street centreline, and
+district lines often run down the middle of a street. When the point is within
+60 m of any district line the card says so and suggests confirming with the
+county clerk, rather than answering with false confidence. Only the kind of
+result (found, or outside Colorado) goes to analytics, never the address.
+
+### Small fixes in v47
+
+- District numbers are centred on their label points. A Leaflet divIcon with
+  no iconSize puts its top-left corner on the point, so every number sat about
+  6 px right of and 12 px below where it was placed: invisible in a big
+  district, enough to push House 55's number onto its own edge.
+- In "By party" and "By margin" the district borders are white, the usual
+  choropleth convention. The thin blue border vanished over dark blue fills
+  and read as a third colour between two reds.
+- The selected district is outlined twice, a wide white line under a narrow
+  near-black one, in its own pane above every fill. Any one colour disappears
+  against some fill on this map; the pair always has an edge that contrasts.
+
 ## Labels on the map
 
 A precinct shows its number as soon as its own shape has room for it, not when

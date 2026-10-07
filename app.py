@@ -49,7 +49,7 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "47"
+APP_VERSION = "48"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
@@ -344,6 +344,13 @@ def _maybe_gzip(resp):
     return resp
 
 
+def _tidy_census(addr):
+    """"250 N 5TH ST, GRAND JUNCTION, CO, 81501" -> "250 N 5th St, Grand
+    Junction, CO 81501". str.title() alone gives "5Th"."""
+    out = addr.title().replace(", Co, ", ", CO ")
+    return re.sub(r"(\d)(St|Nd|Rd|Th)\b", lambda m: m.group(1) + m.group(2).lower(), out)
+
+
 def _census_lookup(q):
     """Census one-line geocoder. Returns {lat, lon, name} or None."""
     params = urllib.parse.urlencode({
@@ -365,8 +372,7 @@ def _census_lookup(q):
         try:
             return {"lat": float(hit["coordinates"]["y"]),
                     "lon": float(hit["coordinates"]["x"]),
-                    "name": hit.get("matchedAddress", "").title()
-                               .replace(", Co, ", ", CO "),
+                    "name": _tidy_census(hit.get("matchedAddress", "")),
                     "source": "census"}
         except (KeyError, TypeError, ValueError):
             continue

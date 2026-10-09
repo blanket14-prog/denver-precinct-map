@@ -410,6 +410,29 @@ result (found, or outside Colorado) goes to analytics, never the address.
   near-black one, in its own pane above every fill. Any one colour disappears
   against some fill on this map; the pair always has an edge that contrasts.
 
+### Congress
+
+Colorado's eight U.S. House districts are the third chamber on the same page:
+a "Congress · 8" button beside House and Senate, and `/congress` opens the page
+on it directly. The Denver map links to it from its header. Keeping it one page
+means the address lookup, roster, party and margin shading and detail card all
+work for Congress without being written twice, and an address lookup now
+answers all three at once: the card for one chamber links to the other two.
+
+- Boundaries: Census TIGER/Line 2024 `tl_2024_08_cd119`, the 119th Congress
+  districts, built by `tools/build_state.py` at the same 5 m tolerance as the
+  legislature. The shapefile is kept in the Maps folder under `Congress/`.
+- Members, party and "in this seat since": the unitedstates/congress-legislators
+  dataset, via `tools/build_congress.py`. The date is the start of the member's
+  unbroken run in that district number, so Lauren Boebert reads January 2025:
+  she held the 3rd district before moving to the 4th.
+- Portraits: the official House photographs, which are federal works in the
+  public domain, so unlike the state legislature's they are kept in
+  `static/congress/` rather than hotlinked. Eight files, about 56 KB together.
+- Results: the 2024 U.S. House returns from the same OpenElections file as the
+  legislature, added to `data/results.json` by `tools/build_results.py`. The
+  8th is the closest: Gabe Evans by 2,449 votes.
+
 ## Labels on the map
 
 A precinct shows its number as soon as its own shape has room for it, not when

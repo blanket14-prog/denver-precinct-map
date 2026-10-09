@@ -49,12 +49,12 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "48"
+APP_VERSION = "49"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
-              "state_house.geojson", "state_senate.geojson", "legislators.json",
-              "results.json")
+              "state_house.geojson", "state_senate.geojson", "state_congress.geojson",
+              "legislators.json", "results.json")
 
 CONFIG_FILE = "config.json"
 _config_cache = {}
@@ -205,18 +205,13 @@ def house_legacy():
     return redirect("/state", code=301)
 
 
-@app.route("/state")
-def state():
-    """Colorado's legislative districts, statewide: 65 House and 35 Senate.
-
-    A separate page rather than another layer on the Denver map, because
-    nothing the Denver map does (precinct search, ballot returns,
-    demographics) has a statewide equivalent.
-    """
+def _statewide(start):
     resp = app.make_response(render_template(
         "state.html",
+        start_chamber=start,
         house_url="/data/state_house.geojson?v=" + geojson_version("state_house.geojson"),
         senate_url="/data/state_senate.geojson?v=" + geojson_version("state_senate.geojson"),
+        congress_url="/data/state_congress.geojson?v=" + geojson_version("state_congress.geojson"),
         members_url="/data/legislators.json?v=" + geojson_version("legislators.json"),
         results_url="/data/results.json?v=" + geojson_version("results.json"),
         version=APP_VERSION,
@@ -225,6 +220,26 @@ def state():
     ))
     resp.headers["Cache-Control"] = "no-cache"
     return resp
+
+
+@app.route("/state")
+def state():
+    """Colorado's districts, statewide: 65 House, 35 Senate and 8 congressional.
+
+    A separate page rather than another layer on the Denver map, because
+    nothing the Denver map does (precinct search, ballot returns,
+    demographics) has a statewide equivalent.
+    """
+    return _statewide("house")
+
+
+@app.route("/congress")
+def congress():
+    """The same statewide page, opening on the eight congressional districts.
+    One page with three chambers rather than a fourth template, so the
+    address lookup, roster, party and margin shading all work for Congress
+    without being written twice."""
+    return _statewide("congress")
 
 
 @app.route("/admin")

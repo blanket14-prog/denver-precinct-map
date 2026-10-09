@@ -31,7 +31,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "results.json")
 FILES = [(2022, "2022/20221108__co__general__precinct.csv"),
          (2024, "2024/20241105__co__general__precinct.csv")]
-OFFICES = {"State House": "house", "State Senate": "senate"}
+OFFICES = {"State House": "house", "State Senate": "senate", "U.S. House": "congress"}
 PARTY = {"DEM": "D", "REP": "R", "LIB": "L", "GRN": "G", "UNA": "U", "ACN": "A"}
 
 
@@ -55,7 +55,7 @@ def tally(path):
 
 
 def main():
-    out = {"house": {}, "senate": {}}
+    out = {"house": {}, "senate": {}, "congress": {}}
     for year, rel in FILES:
         votes, party = tally(os.path.join(CLONE, rel))
         for (chamber, district), cands in votes.items():
@@ -77,27 +77,30 @@ def main():
                 "uncontested": rname is None,
             }
 
-    for chamber, n in (("house", 65), ("senate", 35)):
+    for chamber, n in (("house", 65), ("senate", 35), ("congress", 8)):
         have = sorted(out[chamber], key=int)
         assert have == [str(i) for i in range(1, n + 1)], (chamber, have)
 
     doc = {
         "source": "Colorado Secretary of State certified results, via OpenElections",
         "note": ("Last general election for each seat: November 2024 for every House "
-                 "seat; November 2022 or 2024 for the Senate. Margin is winner minus "
+                 "and congressional seat; November 2022 or 2024 for the Senate. Margin is winner minus "
                  "runner-up as a share of all votes cast in the race."),
         "house": out["house"],
         "senate": out["senate"],
+        "congress": out["congress"],
     }
     with open(OUT, "w") as fh:
         json.dump(doc, fh, separators=(",", ":"), ensure_ascii=False)
 
     years = collections.Counter(v["year"] for v in out["senate"].values())
+    cyears = collections.Counter(v["year"] for v in out["congress"].values())
     unc = [c + " " + d for c in out for d, v in out[c].items() if v["uncontested"]]
     close = sorted(((v["margin"], c, d, v["votes"] - v["runner_votes"])
                     for c in out for d, v in out[c].items()))[:3]
     print("wrote %s (%d bytes)" % (OUT, os.path.getsize(OUT)))
     print("  senate seats last up: %s" % dict(sorted(years.items())))
+    print("  congress seats last up: %s" % dict(sorted(cyears.items())))
     print("  uncontested: %d (%s)" % (len(unc), ", ".join(unc)))
     print("  closest: " + "; ".join("%s %s by %d votes" % (c, d, v) for _, c, d, v in close))
 

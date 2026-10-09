@@ -502,6 +502,16 @@
    "33": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBKzVTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--7a5daba3d83289b2d6431d3200c1731a422d6091/Coleman,%20James%20.jpg",
    "34": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOXBTQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--f26a08c473c6f23699613abea473f8b3120e976c/Gonzales,%20Julie.jpg",
    "35": "https://leg.colorado.gov/rails/active_storage/blobs/redirect/eyJfcmFpbHMiOnsibWVzc2FnZSI6IkJBaHBBOU5TQXc9PSIsImV4cCI6bnVsbCwicHVyIjoiYmxvYl9pZCJ9fQ==--08b2017b389fcad9ad2c05f5ffc23692931b3216/Pelton,%20Rod.jpg"
+  },
+  "congress": {
+   "1": "/static/congress/D000197.jpg",
+   "2": "/static/congress/N000191.jpg",
+   "6": "/static/congress/C001121.jpg",
+   "4": "/static/congress/B000825.jpg",
+   "7": "/static/congress/P000620.jpg",
+   "3": "/static/congress/H001100.jpg",
+   "5": "/static/congress/C001137.jpg",
+   "8": "/static/congress/E000300.jpg"
   }
  },
  "photo_source": "Portraits published by the Colorado General Assembly, linked from leg.colorado.gov; URLs via the Open States people dataset",
@@ -608,7 +618,52 @@
    "33": "2021-01-13",
    "34": "2019-01-09",
    "35": "2023-01-09"
+  },
+  "congress": {
+   "1": "1997-01-07",
+   "2": "2019-01-03",
+   "6": "2019-01-03",
+   "4": "2025-01-03",
+   "7": "2023-01-03",
+   "3": "2025-01-03",
+   "5": "2025-01-03",
+   "8": "2025-01-03"
   }
  },
- "since_note": "Date the member took this particular seat, from Open States. Not their first day in the legislature: a member whose district number changed in redistricting starts a new record."
+ "since_note": "Date the member took this particular seat, from Open States. Not their first day in the legislature: a member whose district number changed in redistricting starts a new record.",
+ "congress": {
+  "1": [
+   "Diana DeGette",
+   "D"
+  ],
+  "2": [
+   "Joe Neguse",
+   "D"
+  ],
+  "6": [
+   "Jason Crow",
+   "D"
+  ],
+  "4": [
+   "Lauren Boebert",
+   "R"
+  ],
+  "7": [
+   "Brittany Pettersen",
+   "D"
+  ],
+  "3": [
+   "Jeff Hurd",
+   "R"
+  ],
+  "5": [
+   "Jeff Crank",
+   "R"
+  ],
+  "8": [
+   "Gabe Evans",
+   "R"
+  ]
+ },
+ "congress_source": "U.S. House members via the unitedstates/congress-legislators dataset; official House portraits (public domain)"
 }

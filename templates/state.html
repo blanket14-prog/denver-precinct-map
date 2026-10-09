@@ -116,6 +116,7 @@
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;
     margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.14)}
   .chamber{display:flex;gap:6px;padding:0 15px 12px}
+  #chamber button{padding-left:3px;padding-right:3px;white-space:nowrap}
   .panel .addr{display:flex;gap:7px;padding:0 15px 12px}
   .panel .addr input{flex:1;min-width:0;padding:8px 10px;font:inherit;
     font-size:13px;color:var(--ink);border:1px solid var(--line);
@@ -262,6 +263,7 @@
   <div class="chamber" id="chamber">
     <button type="button" data-ch="house" class="on">House &middot; 65</button>
     <button type="button" data-ch="senate">Senate &middot; 35</button>
+    <button type="button" data-ch="congress">Congress &middot; 8</button>
   </div>
   <form class="addr" id="addrForm" autocomplete="off">
     <input id="addrQ" type="text" placeholder="Look up an address"
@@ -325,7 +327,7 @@
     <div class="who" id="dAddrBox" hidden>
       <div class="lbl">Address</div>
       <div class="name" id="dAddr"></div>
-      <button type="button" class="also" id="dAlso" hidden></button>
+      <div id="dAlso"></div>
       <div class="note warn" id="dAddrWarn" hidden></div>
     </div>
     <div class="who" id="dElectBox" hidden>
@@ -429,7 +431,7 @@
     D: ["#cfe0f3", "#b2cceb", "#7ea9d9", "#4a7fbf", "#1f4e8c"],
     R: ["#f6d3ce", "#f0b4ab", "#e2867b", "#c9564b", "#8f2c25"]
   };
-  var results = null;            // {house:{d:{...}}, senate:{...}}
+  var results = null;            // {house:{d:{...}}, senate:{...}, congress:{...}}
 
   function resultFor(d) {
     return (results && results[chamber] && results[chamber][String(d)]) || null;
@@ -506,15 +508,18 @@
   }
 
   var CHAMBERS = {
-    house:  { url: "{{ house_url }}",  label: "House District",
-              short: "House",  n: 65 },
-    senate: { url: "{{ senate_url }}", label: "Senate District",
-              short: "Senate", n: 35 }
+    house:    { url: "{{ house_url }}",    label: "House District",
+                short: "House",  tag: "House",  noun: "house",         n: 65 },
+    senate:   { url: "{{ senate_url }}",   label: "Senate District",
+                short: "Senate", tag: "Senate", noun: "senate",        n: 35 },
+    congress: { url: "{{ congress_url }}", label: "Congressional District",
+                short: "Congress", tag: "CD",   noun: "congressional", n: 8 }
   };
   var PARTY = { D: "Democrat", R: "Republican", I: "Independent",
                 U: "Unaffiliated", L: "Libertarian" };
 
-  var chamber = "house";
+  var chamber = {{ start_chamber|tojson }};
+  var ALL = ["house", "senate", "congress"];
   var cache = {};              // chamber -> {layers, labels, marks, byNum, home}
   var members = null;          // {house:{d:[name,party,note?]}, senate:{...}}
   var layers = null, labels = null, labelMarks = [], byNum = {};
@@ -722,9 +727,11 @@
     var mlegend = document.getElementById("mlegend");
     mlegend.hidden = shadeMode !== "margin";
     if (!mlegend.hidden) {
-      document.getElementById("mfoot").textContent = chamber === "house"
-        ? "Last general election: November 2024 for every House seat."
-        : "Last general election: 2024 for 18 Senate seats, 2022 for the other 17.";
+      document.getElementById("mfoot").textContent = {
+        house: "Last general election: November 2024 for every House seat.",
+        senate: "Last general election: 2024 for 18 Senate seats, 2022 for the other 17.",
+        congress: "Last general election: November 2024 for all eight seats."
+      }[chamber];
     }
     legend.hidden = shadeMode !== "party";
     if (legend.hidden) return;
@@ -829,7 +836,7 @@
       nm.textContent = name || "Vacant";
       var sub = document.createElement("span");
       sub.className = "sub";
-      sub.textContent = CHAMBERS[chamber].short + " " + i +
+      sub.textContent = CHAMBERS[chamber].tag + " " + i +
                         (party ? " \u00b7 " + (PARTY[party] || party) : "");
       txt.appendChild(nm);
       txt.appendChild(document.createElement("br"));
@@ -911,12 +918,12 @@
   function syncRosterLabel() {
     if (!picked || !picked.feature) {
       rosterLabel.textContent = "Zoom to a " +
-        CHAMBERS[chamber].short.toLowerCase() + " district";
+        CHAMBERS[chamber].noun + " district";
       return;
     }
     var d = picked.feature.properties.d;
     var row = members && members[chamber] && members[chamber][String(d)];
-    rosterLabel.textContent = CHAMBERS[chamber].short + " " + d +
+    rosterLabel.textContent = CHAMBERS[chamber].tag + " " + d +
                               (row ? " \u00b7 " + row[0] : "");
   }
   document.getElementById("detailClose").addEventListener("click", clearPick);
@@ -1029,7 +1036,7 @@
   // answer can never disagree with what is on screen. Both chambers are
   // checked at once: anyone asking which House district an address is in
   // usually wants the Senate district too.
-  var addr = null;     // {lat, lon, name, d:{house, senate}, edge:{house, senate}}
+  var addr = null;     // {lat, lon, name, d:{chamber: n}, edge:{chamber: metres}}
   var addrPin = null;
   var addrBtn = document.getElementById("addrBtn");
   var addrQ = document.getElementById("addrQ");
@@ -1132,20 +1139,29 @@
     if (!addr || addr.d[chamber] !== d) { box.hidden = true; return; }
     document.getElementById("dAddr").textContent = addr.name;
 
-    var other = chamber === "house" ? "senate" : "house";
-    var on = addr.d[other], also = document.getElementById("dAlso");
-    if (on) {
+    // One link per other chamber: from a House seat, the Senate and
+    // congressional districts the same address falls in.
+    var also = document.getElementById("dAlso");
+    also.textContent = "";
+    ALL.forEach(function (other) {
+      if (other === chamber || !addr.d[other]) return;
+      var on = addr.d[other];
       var row = members && members[other] && members[other][String(on)];
-      also.textContent = "Also in " + CHAMBERS[other].label + " " + on +
-                         (row ? " \u00b7 " + row[0] + " (" + row[1] + ")" : "");
-      also.hidden = false;
-    } else {
-      also.hidden = true;
-    }
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "also";
+      b.setAttribute("data-ch", other);
+      b.textContent = (also.childNodes.length ? "" : "Also in ") +
+                      CHAMBERS[other].label + " " + on +
+                      (row ? " \u00b7 " + row[0] + " (" + row[1] + ")" : "");
+      also.appendChild(b);
+    });
 
     var warn = document.getElementById("dAddrWarn");
-    var near = Math.min(addr.edge.house == null ? Infinity : addr.edge.house,
-                        addr.edge.senate == null ? Infinity : addr.edge.senate);
+    var near = Infinity;
+    ALL.forEach(function (c) {
+      if (addr.edge[c] != null) near = Math.min(near, addr.edge[c]);
+    });
     if (near < NEAR_EDGE_M) {
       warn.textContent = "About " + Math.max(5, Math.round(near / 5) * 5) +
         " m from a district line. Confirm with the county clerk before relying on it.";
@@ -1156,8 +1172,9 @@
     box.hidden = false;
   }
 
-  document.getElementById("dAlso").addEventListener("click", function () {
-    switchTo(chamber === "house" ? "senate" : "house", false);
+  document.getElementById("dAlso").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("button[data-ch]") : null;
+    if (b) switchTo(b.getAttribute("data-ch"), false);
   });
   document.getElementById("detailClose").addEventListener("click", clearAddr);
 
@@ -1173,25 +1190,30 @@
       })
       .then(function (r) {
         if (!r.ok || r.j.error) throw new Error(r.j.error || "lookup failed");
-        // Both chambers are needed for the answer, whichever one is showing.
-        return Promise.all([load("house"), load("senate")]).then(function () { return r.j; });
+        // Every chamber is needed for the answer, whichever one is showing.
+        return Promise.all(ALL.map(load)).then(function () { return r.j; });
       })
       .then(function (hit) {
-        var h = districtAt("house", hit.lon, hit.lat);
-        var sn = districtAt("senate", hit.lon, hit.lat);
+        var found = {}, any = false;
+        ALL.forEach(function (c) {
+          found[c] = districtAt(c, hit.lon, hit.lat);
+          if (found[c]) any = true;
+        });
         clearPick();
         setPin(hit.lat, hit.lon);
         // Kind of result only. The address itself never goes to analytics.
-        track("address_search", { result: h || sn ? "found" : "outside" });
-        if (!h && !sn) {
+        track("address_search", { result: any ? "found" : "outside" });
+        if (!any) {
           addr = null;
           map.flyTo([hit.lat, hit.lon], 9, { duration: .6 });
-          say("Found " + (hit.name || q) + ", but it is not inside a Colorado legislative district.");
+          say("Found " + (hit.name || q) + ", but it is not inside Colorado's districts.");
           return;
         }
-        addr = { lat: hit.lat, lon: hit.lon, name: hit.name || q,
-                 d: { house: h && h.d, senate: sn && sn.d },
-                 edge: { house: h && h.edge, senate: sn && sn.edge } };
+        addr = { lat: hit.lat, lon: hit.lon, name: hit.name || q, d: {}, edge: {} };
+        ALL.forEach(function (c) {
+          addr.d[c] = found[c] && found[c].d;
+          addr.edge[c] = found[c] && found[c].edge;
+        });
         if (!rosterEl.hidden) openRoster(false);
         selectAddr();
       })
@@ -1213,7 +1235,7 @@
     labelMarks = g.marks; byNum = g.byNum; home = g.home;
     layers.addTo(map);
     labels.addTo(map);
-    countEl.textContent = g.count + " " + CHAMBERS[ch].short.toLowerCase() +
+    countEl.textContent = g.count + " " + CHAMBERS[ch].noun +
                           " districts · 2024 boundaries";
     buildRoster();
     syncRosterLabel();
@@ -1259,7 +1281,7 @@
     if (switching || ch === chamber && cache[ch]) return;
     switching = true;
     markButtons(ch);
-    if (!cache[ch]) say("Loading " + CHAMBERS[ch].short.toLowerCase() + " districts…");
+    if (!cache[ch]) say("Loading " + CHAMBERS[ch].noun + " districts…");
     load(ch).then(function () {
       clearPick();
       detach();

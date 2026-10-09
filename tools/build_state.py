@@ -1,4 +1,5 @@
-"""Colorado legislative districts -> data/state_house.geojson, state_senate.geojson.
+"""Colorado districts -> data/state_house.geojson, state_senate.geojson,
+state_congress.geojson.
 
 Source: Census TIGER/Line 2024 state legislative districts (tl_2024_08_sldl
 for the House, tl_2024_08_sldu for the Senate).
@@ -16,7 +17,7 @@ District numbers are placed at the pole of inaccessibility rather than at a
 representative point, so an L-shaped district gets its number in the middle of
 the shape instead of jammed into a corner.
 
-Run:  python3 tools/build_state.py [directory holding the two shapefiles]
+Run:  python3 tools/build_state.py [directory holding the shapefiles] [house,senate,congress]
 """
 import json, os, sys
 import shapefile, pyproj
@@ -35,6 +36,8 @@ LABEL_TOLERANCE = 20.0 # metres, for the pole-of-inaccessibility search
 CHAMBERS = [
     ("house",  SRC + "/State House/tl_2024_08_sldl",  "SLDLST", 65),
     ("senate", SRC + "/State Senate/tl_2024_08_sldu", "SLDUST", 35),
+    # Colorado's eight U.S. House districts, 119th Congress (2025-2027).
+    ("congress", SRC + "/Congress/tl_2024_08_cd119", "CD119FP", 8),
 ]
 
 def label_point(g):
@@ -62,7 +65,13 @@ def round_coords(o):
         return [round_coords(x) for x in o]
     return o
 
+# Optional second argument: build only the named chambers ("congress",
+# "house,senate"); everything is rebuilt when it is left out.
+ONLY = set(sys.argv[2].split(",")) if len(sys.argv) > 2 else None
+
 for name, src, fld, expect in CHAMBERS:
+    if ONLY and name not in ONLY:
+        continue
     r = shapefile.Reader(src)
     feats, worst, moves = [], 0.0, []
     for rec, shp in zip(r.records(), r.shapes()):

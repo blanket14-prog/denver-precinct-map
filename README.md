@@ -433,6 +433,21 @@ answers all three at once: the card for one chamber links to the other two.
   legislature, added to `data/results.json` by `tools/build_results.py`. The
   8th is the closest: Gabe Evans by 2,449 votes.
 
+### The layer tool
+
+The stacked-squares button under the zoom controls switches the basemap
+(Muted gray, Street map, Satellite) and three overlays:
+
+- **Roads on top**: Esri's transportation reference layer, drawn in its own
+  pane above the district fills, so streets and their names show through any
+  shading. This is the one for working out which side of a street a line runs.
+- **Town names on top**: place labels, the same way.
+- **Outlines only**: drops the fills to a faint tint and draws every boundary
+  in a firm dark line, so a street basemap reads clearly underneath.
+
+The map now zooms to 17 rather than 14, close enough to see individual blocks.
+Every layer is from Esri, the host the map already used.
+
 ## Labels on the map
 
 A precinct shows its number as soon as its own shape has room for it, not when

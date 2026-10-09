@@ -173,6 +173,11 @@
     font-size:10.5px;line-height:1.5;color:#7a828c;
     font-variant-numeric:tabular-nums;box-shadow:0 0 0 1px rgba(0,0,0,.06)}
   .leaflet-container{font:inherit}
+  .leaflet-control-layers{border-radius:8px !important;border:1px solid var(--line) !important;
+    box-shadow:0 4px 16px rgba(20,30,45,.12) !important;font:inherit;font-size:13px}
+  .leaflet-control-layers-expanded{padding:8px 12px 8px 9px}
+  .leaflet-control-layers label{margin:3px 0}
+  .leaflet-control-layers-separator{margin:6px -12px 6px -9px}
   .leaflet-control-zoom{border-radius:8px;border:1px solid var(--line);
     box-shadow:0 4px 16px rgba(20,30,45,.12);overflow:hidden}
 
@@ -354,7 +359,9 @@
   }
 
   var map = L.map("map", {
-    center: [39.0, -105.55], zoom: 7, minZoom: 6, maxZoom: 14,
+    // 17, not 14: close enough to read which side of a street a district
+    // line runs down, which is the point of the street basemaps below.
+    center: [39.0, -105.55], zoom: 7, minZoom: 6, maxZoom: 17,
     zoomControl: false, preferCanvas: true,
     zoomSnap: .5, zoomDelta: .5
   });
@@ -370,16 +377,55 @@
 
   // The full credit wraps to three lines on a phone and sits under the
   // detail card; the short form keeps both credits visible on one.
-  L.tileLayer(
-    "https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/" +
-      "World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-    { attribution: (isNarrow() || window.innerHeight <= 560)
-        ? '&copy; <a href="https://www.esri.com/">Esri</a> \u00b7 Census TIGER 2024'
-        : 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
-          'Districts: U.S. Census Bureau TIGER/Line 2024',
-      maxNativeZoom: 16, maxZoom: 14 }
-  ).addTo(map);
+  var CREDIT = (isNarrow() || window.innerHeight <= 560)
+    ? '&copy; <a href="https://www.esri.com/">Esri</a> \u00b7 Census TIGER 2024'
+    : 'Tiles &copy; <a href="https://www.esri.com/">Esri</a> | ' +
+      'Districts: U.S. Census Bureau TIGER/Line 2024';
+  var ESRI = "https://services.arcgisonline.com/ArcGIS/rest/services/";
+  function esri(path, native, extra) {
+    return L.tileLayer(ESRI + path + "/MapServer/tile/{z}/{y}/{x}",
+      L.extend({ attribution: CREDIT, maxNativeZoom: native, maxZoom: 17 }, extra || {}));
+  }
+
+  // ---- the layer tool ---------------------------------------------------
+  // Three basemaps and three overlays, in Leaflet's standard layers control
+  // (the stacked-squares button under the zoom buttons). All from Esri, the
+  // host the map already used, so nothing new is loaded from anywhere else.
+  //
+  // "Roads on top" is the one that answers "which side of the street": Esri's
+  // transportation reference layer, drawn in its own pane ABOVE the district
+  // fills, so the streets and their names stay visible however the districts
+  // are shaded.
+  var BASEMAPS = {
+    "Muted gray": esri("Canvas/World_Light_Gray_Base", 16),
+    "Street map": esri("World_Street_Map", 19),
+    "Satellite": esri("World_Imagery", 19)
+  };
+  BASEMAPS["Muted gray"].addTo(map);
   if (isNarrow() || window.innerHeight <= 560) map.attributionControl.setPrefix(false);
+
+  map.createPane("roadsTop");
+  map.getPane("roadsTop").style.zIndex = 440;          // fills 400, outline 450, numbers 460
+  map.getPane("roadsTop").style.pointerEvents = "none";
+  var ROADS = esri("Reference/World_Transportation", 19, { pane: "roadsTop" });
+  var PLACES = esri("Reference/World_Boundaries_and_Places", 19, { pane: "roadsTop" });
+  var OUTLINES = L.layerGroup();      // a switch, not a layer: see setOutlines
+  var outlinesOnly = false;
+
+  L.control.layers(BASEMAPS, {
+    "Roads on top": ROADS,
+    "Town names on top": PLACES,
+    "Outlines only (light fill)": OUTLINES
+  }, { position: "topright", collapsed: true }).addTo(map);
+
+  map.on("overlayadd overlayremove", function (e) {
+    if (e.layer === OUTLINES) {
+      outlinesOnly = e.type === "overlayadd";
+      if (typeof restyle === "function") restyle();
+    }
+    track("layer_toggle", { layer: e.name, on: e.type === "overlayadd" });
+  });
+  map.on("baselayerchange", function (e) { track("basemap", { basemap: e.name }); });
 
   var VersionBadge = L.Control.extend({
     onAdd: function () {
@@ -460,7 +506,10 @@
 
   // A graded ramp only reads if the fill is close to opaque; at the usual
   // .62 the basemap greys every step toward the next.
-  function fillAlpha() { return shadeMode === "margin" ? .88 : .62; }
+  function fillAlpha() {
+    if (outlinesOnly) return .14;
+    return shadeMode === "margin" ? .88 : .62;
+  }
 
   // Outlines. The thin blue line works over the pale mixed palette and
   // vanishes over the party and margin colours: dark blue on dark blue, and
@@ -470,6 +519,10 @@
   function shaded() { return shadeMode === "party" || shadeMode === "margin"; }
 
   var BASE = function (p) {
+    if (outlinesOnly) {
+      return { color: "#13406b", weight: 2, opacity: .9,
+               fillColor: fillFor(p), fillOpacity: fillAlpha() };
+    }
     return shaded()
       ? { color: "#ffffff", weight: 1.4, opacity: .9,
           fillColor: fillFor(p), fillOpacity: fillAlpha() }
@@ -477,6 +530,7 @@
           fillColor: fillFor(p), fillOpacity: fillAlpha() };
   };
   function HOVER() {
+    if (outlinesOnly) return { color: "#13406b", weight: 3.2, opacity: 1, fillOpacity: .26 };
     return shaded()
       ? { color: "#ffffff", weight: 3, opacity: 1 }
       : { color: "#13406b", weight: 2.5, opacity: 1, fillOpacity: .80 };
@@ -486,7 +540,7 @@
   // outline is drawn separately (see haloFor) so it reads on any fill.
   function PICKED(p) {
     var b = BASE(p);
-    b.fillOpacity = shadeMode === "margin" ? .97 : .85;
+    b.fillOpacity = outlinesOnly ? .22 : (shadeMode === "margin" ? .97 : .85);
     return b;
   }
 

@@ -548,3 +548,22 @@ accuracy it doubles the file. The slivers are the better trade.
 Leaflet 1.9.4 is vendored in `static/leaflet/` rather than loaded from a CDN,
 so the app has no third-party script dependency at runtime. Basemap tiles are
 still fetched from Esri (World Light Gray Canvas) and OpenStreetMap.
+
+## Counties (v51)
+
+`/counties` opens the statewide page on Colorado's 64 counties (also a fourth
+button, "Counties · 64", next to House, Senate and Congress, and a "Counties"
+link in the Denver map header). Each county shows its seat, 2020 population,
+the 2024 presidential result, and the House, Senate and congressional
+districts its residents live in, each a link that jumps to that district.
+House, Senate and congressional cards now list the counties they span, with
+each county's share of the district's residents.
+
+By party and By margin shade counties by the 2024 presidential vote
+(Harris 23 counties, Trump 41). The address lookup reports the county too.
+
+Boundaries come from the 2020 Census blocks dissolved by county, so county
+lines match the TIGER legislative lines exactly; the overlap shares come from
+assigning each 2020 block to its county and districts. Built by
+`tools/build_counties.py`; the source files and the two helper scripts
+(dissolve.py, overlap.py) are in the Maps folder under Counties/ and Scripts/.

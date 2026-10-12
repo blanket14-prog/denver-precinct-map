@@ -49,11 +49,12 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "50"
+APP_VERSION = "51"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
               "state_house.geojson", "state_senate.geojson", "state_congress.geojson",
+              "state_counties.geojson",
               "legislators.json", "results.json")
 
 CONFIG_FILE = "config.json"
@@ -212,6 +213,7 @@ def _statewide(start):
         house_url="/data/state_house.geojson?v=" + geojson_version("state_house.geojson"),
         senate_url="/data/state_senate.geojson?v=" + geojson_version("state_senate.geojson"),
         congress_url="/data/state_congress.geojson?v=" + geojson_version("state_congress.geojson"),
+        counties_url="/data/state_counties.geojson?v=" + geojson_version("state_counties.geojson"),
         members_url="/data/legislators.json?v=" + geojson_version("legislators.json"),
         results_url="/data/results.json?v=" + geojson_version("results.json"),
         version=APP_VERSION,
@@ -240,6 +242,14 @@ def congress():
     address lookup, roster, party and margin shading all work for Congress
     without being written twice."""
     return _statewide("congress")
+
+
+@app.route("/counties")
+def counties():
+    """The same statewide page, opening on Colorado's 64 counties: seat,
+    2020 population, the 2024 presidential vote, and which House, Senate and
+    congressional districts each county's residents live in."""
+    return _statewide("counties")
 
 
 @app.route("/admin")

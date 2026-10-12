@@ -116,7 +116,18 @@
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;
     margin-right:5px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.14)}
   .chamber{display:flex;gap:6px;padding:0 15px 12px}
+  /* Four chambers in a 272px panel: two rows of two, so no label has to
+     shrink to fit. */
+  #chamber{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   #chamber button{padding-left:3px;padding-right:3px;white-space:nowrap}
+  .detail #dIn{font-weight:500;white-space:normal;max-width:300px;font-size:13px;
+    line-height:1.45}
+  .detail #dIn .grp{display:block}
+  .detail #dIn .k{color:var(--muted);font-weight:450}
+  .detail .dlink{padding:0;font:inherit;color:var(--accent);background:none;border:0;
+    cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+  .detail .dlink:hover{color:#27608f}
+  .dnum.cname{font-size:11px;font-weight:650;letter-spacing:.01em}
   .panel .addr{display:flex;gap:7px;padding:0 15px 12px}
   .panel .addr input{flex:1;min-width:0;padding:8px 10px;font:inherit;
     font-size:13px;color:var(--ink);border:1px solid var(--line);
@@ -238,6 +249,13 @@
       gap:2px 10px;font-size:12px;color:var(--muted)}
     .detail #dSinceBox{display:flex;align-items:baseline;gap:5px}
     .detail #dElectBox{flex-basis:100%}
+    .detail #dInBox{flex-basis:100%}
+    .detail #dInBox[hidden]{display:none}
+    .detail #dInBox > .lbl{display:none}
+    .detail #dIn{font-size:12px;max-width:none}
+    /* On a phone the member label is hidden, which for a county left
+       "Denver" printed twice with nothing to say the second is the seat. */
+    .detail.is-county .who:not(#dSinceBox) > #dWhoLbl{display:block;font-size:11px}
     .detail #dElectBox[hidden]{display:none}
     .detail #dElectBox > .lbl{display:none}
     .detail #dElect{font-size:12px;color:var(--ink)}
@@ -269,6 +287,7 @@
     <button type="button" data-ch="house" class="on">House &middot; 65</button>
     <button type="button" data-ch="senate">Senate &middot; 35</button>
     <button type="button" data-ch="congress">Congress &middot; 8</button>
+    <button type="button" data-ch="counties">Counties &middot; 64</button>
   </div>
   <form class="addr" id="addrForm" autocomplete="off">
     <input id="addrQ" type="text" placeholder="Look up an address"
@@ -324,7 +343,7 @@
     <div class="num" id="dNum"></div>
   </div>
   <div class="who">
-    <div class="lbl">Current member</div>
+    <div class="lbl" id="dWhoLbl">Current member</div>
     <div class="name" id="dWho">&mdash;</div>
     <div class="note" id="dNote" hidden></div>
   </div>
@@ -339,6 +358,10 @@
       <div class="lbl">Last election</div>
       <div class="name" id="dElect"></div>
       <div class="note" id="dElectNote" hidden></div>
+    </div>
+    <div class="who" id="dInBox" hidden>
+      <div class="lbl" id="dInLbl">Districts</div>
+      <div class="name" id="dIn"></div>
     </div>
     <div class="who" id="dSinceBox" hidden>
       <div class="lbl">In this seat since</div>
@@ -491,6 +514,7 @@
   }
 
   function partyOf(d) {
+    if (isCounty()) { var r = resultFor(d); return r ? r.party : null; }
     var row = members && members[chamber] && members[chamber][String(d)];
     return row ? row[1] : null;
   }
@@ -500,7 +524,7 @@
       var ramp = r && RAMP[r.party];
       return ramp ? ramp[marginStep(r)] : NO_PARTY;
     }
-    if (shadeMode !== "party") return FILL[p.d % FILL.length];
+    if (shadeMode !== "party") return FILL[(p.c != null ? p.c : p.d) % FILL.length];
     return PARTY_FILL[partyOf(p.d)] || NO_PARTY;
   }
 
@@ -567,13 +591,32 @@
     senate:   { url: "{{ senate_url }}",   label: "Senate District",
                 short: "Senate", tag: "Senate", noun: "senate",        n: 35 },
     congress: { url: "{{ congress_url }}", label: "Congressional District",
-                short: "Congress", tag: "CD",   noun: "congressional", n: 8 }
+                short: "Congress", tag: "CD",   noun: "congressional", n: 8 },
+    // Counties ride on the same page so the address lookup, layer tool and
+    // shading all work for them too. Their key is the county FIPS code
+    // (Adams 1 ... Yuma 125); people see the name, never the code.
+    counties: { url: "{{ counties_url }}", label: "County",
+                short: "Counties", tag: "County", noun: "county", n: 64 }
   };
+  function isCounty(ch) { return (ch || chamber) === "counties"; }
+  function countyProps(d) {
+    var g = cache.counties, l = g && g.byNum[d];
+    return l ? l.feature.properties : null;
+  }
+  // "House District 31", "Adams County": how a seat or county is named in
+  // running text, links and tooltips.
+  function nameOf(ch, d) {
+    if (isCounty(ch)) {
+      var p = countyProps(d);
+      return p ? p.name + " County" : "County " + d;
+    }
+    return CHAMBERS[ch].label + " " + d;
+  }
   var PARTY = { D: "Democrat", R: "Republican", I: "Independent",
                 U: "Unaffiliated", L: "Libertarian" };
 
   var chamber = {{ start_chamber|tojson }};
-  var ALL = ["house", "senate", "congress"];
+  var ALL = ["house", "senate", "congress", "counties"];
   var cache = {};              // chamber -> {layers, labels, marks, byNum, home}
   var members = null;          // {house:{d:[name,party,note?]}, senate:{...}}
   var layers = null, labels = null, labelMarks = [], byNum = {};
@@ -608,7 +651,10 @@
   var countEl = document.getElementById("count");
 
   function say(msg) { note.textContent = msg; }
-  var IDLE = "Click any district to zoom in and see its number.";
+  function idle() {
+    return isCounty() ? "Click any county to zoom in and see who represents it."
+                      : "Click any district to zoom in and see its number.";
+  }
 
   // ---- detail bar ---------------------------------------------------------
 
@@ -617,8 +663,19 @@
     fillFace(d);
     fillSince(d);
     fillElection(d);
+    fillIn(d);
     var who = document.getElementById("dWho");
     var noteEl = document.getElementById("dNote");
+    detail.classList.toggle("is-county", isCounty());
+    document.getElementById("dWhoLbl").textContent =
+      isCounty() ? "County seat" : "Current member";
+    if (isCounty()) {
+      var cp = countyProps(d);
+      who.textContent = cp ? cp.seat : "\u2014";
+      noteEl.textContent = cp ? cp.pop.toLocaleString() + " people (2020 Census)" : "";
+      noteEl.hidden = !cp;
+      return;
+    }
     var row = members && members[chamber] && members[chamber][String(d)];
     if (!row) {
       who.textContent = "—";
@@ -660,7 +717,18 @@
     var box = document.getElementById("dElectBox");
     var noteEl = document.getElementById("dElectNote");
     var r = resultFor(d);
+    box.querySelector(".lbl").textContent =
+      isCounty() ? "2024 president" : "Last election";
     if (!r) { box.hidden = true; return; }
+    if (isCounty()) {
+      document.getElementById("dElect").textContent =
+        r.winner + " won by " + r.margin.toFixed(1) + " points over " + r.runner +
+        " (" + Math.round(100 * r.votes / r.total) + "% to " +
+        Math.round(100 * r.runner_votes / r.total) + "%)";
+      noteEl.hidden = true;
+      box.hidden = false;
+      return;
+    }
     var text;
     if (r.uncontested) {
       text = "Uncontested, " + r.year;
@@ -686,6 +754,109 @@
     box.hidden = false;
   }
 
+  // ---- who represents a county, and which counties a district spans -----
+  // Both come from the same table: every 2020 Census block assigned to its
+  // county and to its House, Senate and congressional district, so the
+  // shares are of residents, not of land.
+  var IN_ORDER = [["house", "House"], ["senate", "Senate"], ["congress", "CD"]];
+
+  function dlink(ch, d, text) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "dlink";
+    b.setAttribute("data-go", ch + ":" + d);
+    b.textContent = text;
+    return b;
+  }
+
+  function pct(n, of) {
+    var v = 100 * n / of;
+    return v >= 99.5 ? "" : v < 1 ? " (<1%)" : " (" + Math.round(v) + "%)";
+  }
+
+  function fillIn(d) {
+    var box = document.getElementById("dInBox");
+    var out = document.getElementById("dIn");
+    out.textContent = "";
+    if (isCounty()) {
+      var p = countyProps(d);
+      if (!p || !p.in) { box.hidden = true; return; }
+      document.getElementById("dInLbl").textContent = "Represented by";
+      IN_ORDER.forEach(function (pair) {
+        // In number order: easier to scan than by population, which is in
+        // each number's tooltip.
+        var rows = (p.in[pair[0]] || []).slice().sort(function (x, y) { return x[0] - y[0]; });
+        if (!rows.length) return;
+        var line = document.createElement("span");
+        line.className = "grp";
+        var k = document.createElement("span");
+        k.className = "k";
+        k.textContent = (pair[0] === "congress" ? "Congress" : pair[1]) + " ";
+        line.appendChild(k);
+        rows.forEach(function (r, i) {
+          if (i) line.appendChild(document.createTextNode(", "));
+          var b = dlink(pair[0], r[0], String(r[0]));
+          b.title = r[1].toLocaleString() + " of the county's residents";
+          line.appendChild(b);
+        });
+        out.appendChild(line);
+      });
+      box.hidden = false;
+      return;
+    }
+    // A district: the counties its residents live in. Needs the county file,
+    // which is fetched the first time it is wanted and then kept.
+    var g = cache.counties;
+    if (!g) {
+      box.hidden = true;
+      load("counties").then(function () {
+        if (picked && picked.feature && picked.feature.properties.d === d) fillIn(d);
+      }).catch(function () {});
+      return;
+    }
+    var hits = [], total = 0;
+    Object.keys(g.byNum).forEach(function (k) {
+      var cp = g.byNum[k].feature.properties;
+      (cp.in[chamber] || []).forEach(function (r) {
+        if (r[0] === d) { hits.push([cp, r[1]]); total += r[1]; }
+      });
+    });
+    if (!hits.length) { box.hidden = true; return; }
+    hits.sort(function (a, b) { return b[1] - a[1]; });
+    document.getElementById("dInLbl").textContent =
+      hits.length === 1 ? "County" : "Counties";
+    var line = document.createElement("span");
+    line.className = "grp";
+    hits.forEach(function (h, i) {
+      if (i) line.appendChild(document.createTextNode(", "));
+      var b = dlink("counties", h[0].d, h[0].name);
+      b.title = h[1].toLocaleString() + " residents";
+      line.appendChild(b);
+      line.appendChild(document.createTextNode(pct(h[1], total)));
+    });
+    out.appendChild(line);
+    box.hidden = false;
+  }
+
+  // Jump to another chamber and select one seat or county in it.
+  function goTo(ch, d) {
+    var finish = function () {
+      var lyr = byNum[d];
+      if (lyr) { show(lyr); say("Showing " + nameOf(ch, d) + "."); }
+    };
+    if (ch === chamber) { finish(); return; }
+    pending = { ch: ch, d: d };
+    switchTo(ch, false);
+  }
+  var pending = null;
+  document.getElementById("dIn").addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("button[data-go]") : null;
+    if (!b) return;
+    var parts = b.getAttribute("data-go").split(":");
+    track("cross_link", { from: chamber, to: parts[0] });
+    goTo(parts[0], +parts[1]);
+  });
+
   function fillSince(d) {
     var box = document.getElementById("dSinceBox");
     var since = members && members.since && members.since[chamber];
@@ -700,7 +871,7 @@
     var face = document.getElementById("dFace");
     var row = members && members[chamber] && members[chamber][String(d)];
     face.textContent = "";
-    if (!row) { face.hidden = true; return; }
+    if (!row || isCounty()) { face.hidden = true; return; }
     face.hidden = false;
     // Eager here, not lazy: the bar opens because someone asked for this one
     // district, so the portrait should be there when the panel appears.
@@ -734,7 +905,7 @@
     layer.setStyle(PICKED(p));
     haloFor(layer);
     document.getElementById("dLbl").textContent = CHAMBERS[chamber].label;
-    document.getElementById("dNum").textContent = p.d;
+    document.getElementById("dNum").textContent = isCounty() ? p.name : p.d;
     document.getElementById("dArea").textContent =
       p.area.toLocaleString() + " square miles";
     fillMember(p.d);
@@ -769,6 +940,13 @@
 
   function partyCounts() {
     var m = (members && members[chamber]) || {}, c = {};
+    if (isCounty()) {
+      Object.keys(byNum).forEach(function (d) {
+        var k = partyOf(d) || "?";
+        c[k] = (c[k] || 0) + 1;
+      });
+      return c;
+    }
     Object.keys(m).forEach(function (d) {
       var k = m[d][1] || "?";
       c[k] = (c[k] || 0) + 1;
@@ -784,14 +962,17 @@
       document.getElementById("mfoot").textContent = {
         house: "Last general election: November 2024 for every House seat.",
         senate: "Last general election: 2024 for 18 Senate seats, 2022 for the other 17.",
-        congress: "Last general election: November 2024 for all eight seats."
+        congress: "Last general election: November 2024 for all eight seats.",
+        counties: "2024 presidential vote in each county, Harris against Trump."
       }[chamber];
     }
     legend.hidden = shadeMode !== "party";
     if (legend.hidden) return;
     var c = partyCounts();
-    document.getElementById("legD").textContent = "Democrat " + (c.D || 0);
-    document.getElementById("legR").textContent = "Republican " + (c.R || 0);
+    document.getElementById("legD").textContent =
+      (isCounty() ? "Harris " : "Democrat ") + (c.D || 0);
+    document.getElementById("legR").textContent =
+      (isCounty() ? "Trump " : "Republican ") + (c.R || 0);
   }
 
   var shadeBtns = Array.prototype.slice.call(
@@ -866,7 +1047,50 @@
     return (pics && pics[String(d)]) || "";
   }
 
+  // Counties: alphabetical, no portraits, the seat and population instead
+  // of a member, the dot coloured by the 2024 presidential winner.
+  function buildCountyRoster() {
+    var list = Object.keys(byNum).map(function (k) { return byNum[k].feature.properties; })
+      .sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+    list.forEach(function (p) {
+      var li = document.createElement("li");
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.setAttribute("data-d", String(p.d));
+      var txt = document.createElement("span");
+      txt.className = "txt";
+      var nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = p.name + " County";
+      var sub = document.createElement("span");
+      sub.className = "sub";
+      sub.textContent = p.seat + " \u00b7 " + p.pop.toLocaleString() + " people";
+      txt.appendChild(nm);
+      txt.appendChild(document.createElement("br"));
+      txt.appendChild(sub);
+      btn.appendChild(txt);
+      var dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = PARTY_FILL[partyOf(p.d)] || NO_PARTY;
+      btn.appendChild(dot);
+      li.appendChild(btn);
+      rosterList.appendChild(li);
+      rosterRows.push({ li: li, btn: btn, d: p.d,
+                        hay: (p.name + " county " + p.seat).toLowerCase() });
+    });
+    markRoster();
+    filterRoster();
+  }
+
   function buildRoster() {
+    rosterQ.placeholder = isCounty() ? "Filter by county or seat"
+                                     : "Filter by name or number";
+    if (isCounty()) {
+      rosterList.textContent = "";
+      rosterRows = [];
+      buildCountyRoster();
+      return;
+    }
     var m = (members && members[chamber]) || {};
     var pics = (members && members.photos && members.photos[chamber]) || {};
     rosterList.textContent = "";
@@ -963,19 +1187,20 @@
     var n = parseInt(btn.getAttribute("data-d"), 10);
     var lyr = byNum[n];
     openRoster(false);
-    if (!lyr) { say(CHAMBERS[chamber].label + " " + n + " is not in the data."); return; }
+    if (!lyr) { say(nameOf(chamber, n) + " is not in the data."); return; }
     show(lyr);
-    say("Showing " + CHAMBERS[chamber].label + " " + n + ".");
+    say("Showing " + nameOf(chamber, n) + ".");
     track("district_search", { chamber: chamber, district: n });
   });
 
   function syncRosterLabel() {
     if (!picked || !picked.feature) {
-      rosterLabel.textContent = "Zoom to a " +
-        CHAMBERS[chamber].noun + " district";
+      rosterLabel.textContent = isCounty() ? "Zoom to a county"
+        : "Zoom to a " + CHAMBERS[chamber].noun + " district";
       return;
     }
     var d = picked.feature.properties.d;
+    if (isCounty()) { rosterLabel.textContent = nameOf(chamber, d); return; }
     var row = members && members[chamber] && members[chamber][String(d)];
     rosterLabel.textContent = CHAMBERS[chamber].tag + " " + d +
                               (row ? " \u00b7 " + row[0] : "");
@@ -998,7 +1223,7 @@
         var el = r.m.getElement && r.m.getElement();
         if (!el) return;
         var p = map.latLngToContainerPoint(r.ll);
-        var hw = 6 + r.digits * 4.5, hh = 9;
+        var hw = r.name ? 5 + r.digits * 3.4 : 6 + r.digits * 4.5, hh = 9;
         var ok = p.x > -30 && p.y > -30 && p.x < size.x + 30 && p.y < size.y + 30;
         for (var i = 0; ok && i < placed.length; i++) {
           var q = placed[i];
@@ -1032,7 +1257,8 @@
         onEachFeature: function (_, lyr) {
           var who = (members && members[ch] && members[ch][String(f.properties.d)]);
           if (!NO_HOVER) {
-            lyr.bindTooltip(CHAMBERS[ch].label + " " + f.properties.d +
+            lyr.bindTooltip((isCounty(ch) ? f.properties.name + " County"
+                                          : CHAMBERS[ch].label + " " + f.properties.d) +
                             (who ? " \u00b7 " + who[0] + " (" + who[1] + ")" : ""),
                             { sticky: true, direction: "top", opacity: .9 });
             lyr.on({
@@ -1041,7 +1267,7 @@
             });
           }
           lyr.on("click", function () {
-            if (lyr === picked) { clearPick(); say(IDLE); return; }
+            if (lyr === picked) { clearPick(); say(idle()); return; }
             show(lyr);
           });
         }
@@ -1051,14 +1277,17 @@
       g.count++;
 
       var ll = L.latLng(f.properties.label[1], f.properties.label[0]);
+      var text = isCounty(ch) ? f.properties.name : String(f.properties.d);
+      var span = document.createElement("span");
+      span.className = isCounty(ch) ? "dnum cname" : "dnum";
+      span.textContent = text;
       var mark = L.marker(ll, {
-        icon: L.divIcon({ className: "", iconSize: null,
-                          html: '<span class="dnum">' + f.properties.d + "</span>" }),
+        icon: L.divIcon({ className: "", iconSize: null, html: span }),
         pane: "dlabels", interactive: false, keyboard: false
       });
       g.labels.addLayer(mark);
       g.marks.push({ m: mark, ll: ll, area: f.properties.area,
-                     digits: String(f.properties.d).length });
+                     digits: text.length, name: isCounty(ch) });
     });
 
     return g;
@@ -1176,7 +1405,7 @@
     if (!lyr) {
       clearPick();
       map.flyTo([addr.lat, addr.lon], 10, { duration: .6 });
-      say(addr.name + " is not inside any " + CHAMBERS[chamber].label + ".");
+      say(addr.name + " is not inside any " + CHAMBERS[chamber].label.toLowerCase() + ".");
       return;
     }
     show(lyr);
@@ -1206,7 +1435,7 @@
       b.className = "also";
       b.setAttribute("data-ch", other);
       b.textContent = (also.childNodes.length ? "" : "Also in ") +
-                      CHAMBERS[other].label + " " + on +
+                      nameOf(other, on) +
                       (row ? " \u00b7 " + row[0] + " (" + row[1] + ")" : "");
       also.appendChild(b);
     });
@@ -1218,7 +1447,8 @@
     });
     if (near < NEAR_EDGE_M) {
       warn.textContent = "About " + Math.max(5, Math.round(near / 5) * 5) +
-        " m from a district line. Confirm with the county clerk before relying on it.";
+        " m from a " + (near === addr.edge.counties ? "county" : "district") +
+        " line. Confirm with the county clerk before relying on it.";
       warn.hidden = false;
     } else {
       warn.hidden = true;
@@ -1289,8 +1519,8 @@
     labelMarks = g.marks; byNum = g.byNum; home = g.home;
     layers.addTo(map);
     labels.addTo(map);
-    countEl.textContent = g.count + " " + CHAMBERS[ch].noun +
-                          " districts · 2024 boundaries";
+    countEl.textContent = isCounty(ch) ? g.count + " counties · 2020 Census"
+      : g.count + " " + CHAMBERS[ch].noun + " districts · 2024 boundaries";
     buildRoster();
     syncRosterLabel();
     syncLegend();
@@ -1335,13 +1565,18 @@
     if (switching || ch === chamber && cache[ch]) return;
     switching = true;
     markButtons(ch);
-    if (!cache[ch]) say("Loading " + CHAMBERS[ch].noun + " districts…");
+    if (!cache[ch]) say(isCounty(ch) ? "Loading counties\u2026"
+                                      : "Loading " + CHAMBERS[ch].noun + " districts…");
     load(ch).then(function () {
       clearPick();
       detach();
       attach(ch, fit !== false && !addr);
       switching = false;
-      if (addr) selectAddr(); else say(IDLE);
+      if (pending && pending.ch === ch) {
+        var go = pending; pending = null;
+        var lyr = byNum[go.d];
+        if (lyr) { show(lyr); say("Showing " + nameOf(ch, go.d) + "."); }
+      } else if (addr) selectAddr(); else say(idle());
       track("chamber_switch", { chamber: ch });
     }).catch(function (err) {
       markButtons(chamber);
@@ -1362,7 +1597,7 @@
     clearAddr();
     if (home) map.flyToBounds(home, isNarrow() ? fitPadding(12)
                                                : { padding: [20, 20], duration: .7 });
-    say(IDLE);
+    say(idle());
   });
 
   markButtons(chamber);

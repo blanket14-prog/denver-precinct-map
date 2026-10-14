@@ -49,12 +49,12 @@ GEO_CACHE_MAX = 500
 # Shown in the map's bottom-right corner and returned by /healthz, so it is
 # obvious at a glance whether a browser is on the current deploy or a cached
 # copy. Bump this with every change that ships.
-APP_VERSION = "51"
+APP_VERSION = "52"
 
 DATA_FILES = ("precincts.geojson", "districts.geojson", "elections.json",
               "returns.json", "tracts.geojson", "demographics.json",
               "state_house.geojson", "state_senate.geojson", "state_congress.geojson",
-              "state_counties.geojson",
+              "state_counties.geojson", "state_rtd.geojson",
               "legislators.json", "results.json")
 
 CONFIG_FILE = "config.json"
@@ -214,6 +214,7 @@ def _statewide(start):
         senate_url="/data/state_senate.geojson?v=" + geojson_version("state_senate.geojson"),
         congress_url="/data/state_congress.geojson?v=" + geojson_version("state_congress.geojson"),
         counties_url="/data/state_counties.geojson?v=" + geojson_version("state_counties.geojson"),
+        rtd_url="/data/state_rtd.geojson?v=" + geojson_version("state_rtd.geojson"),
         members_url="/data/legislators.json?v=" + geojson_version("legislators.json"),
         results_url="/data/results.json?v=" + geojson_version("results.json"),
         version=APP_VERSION,
@@ -250,6 +251,14 @@ def counties():
     2020 population, the 2024 presidential vote, and which House, Senate and
     congressional districts each county's residents live in."""
     return _statewide("counties")
+
+
+@app.route("/rtd")
+def rtd():
+    """The same statewide page, opening on the 15 RTD Board of Directors
+    districts: the director, when the seat is next on the ballot, and the
+    2026 candidates where it is."""
+    return _statewide("rtd")
 
 
 @app.route("/admin")

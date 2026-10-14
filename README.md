@@ -567,3 +567,20 @@ lines match the TIGER legislative lines exactly; the overlap shares come from
 assigning each 2020 block to its county and districts. Built by
 `tools/build_counties.py`; the source files and the two helper scripts
 (dissolve.py, overlap.py) are in the Maps folder under Counties/ and Scripts/.
+
+## RTD board (v52)
+
+`/rtd` opens the statewide page on the 15 RTD Board of Directors districts
+(A to O); there is also an "RTD board · 15" button and an "RTD" link in the
+Denver map header. Each district shows its director, when the seat is next on
+the ballot, the November 2026 candidates where it is, its 2020 population and
+the counties it covers. County cards now list their RTD districts too, and the
+address lookup reports the RTD district. There is no party or margin shading,
+since the board is nonpartisan.
+
+Boundaries are RTD's own (RTD_GIS_Boundaries/FeatureServer/1, the 2022 plan),
+saved in the Maps folder under RTD/. Director names come from the Board of
+Directors page rather than that service, which still lists Vince Buzek in J.
+Built by `tools/build_rtd.py`; populations from Maps/Scripts/rtd_overlap.py.
+
+Also fixed: on a phone, the collapsed panel kept showing the chamber buttons.

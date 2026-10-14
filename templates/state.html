@@ -120,6 +120,8 @@
      shrink to fit. */
   #chamber{display:grid;grid-template-columns:1fr 1fr;gap:6px}
   #chamber button{padding-left:3px;padding-right:3px;white-space:nowrap}
+  #chamber button.wide{grid-column:1 / -1}
+  #shade[hidden], .legend[hidden], .mlegend[hidden]{display:none}
   .detail #dIn{font-weight:500;white-space:normal;max-width:300px;font-size:13px;
     line-height:1.45}
   .detail #dIn .grp{display:block}
@@ -256,6 +258,9 @@
     /* On a phone the member label is hidden, which for a county left
        "Denver" printed twice with nothing to say the second is the seat. */
     .detail.is-county .who:not(#dSinceBox) > #dWhoLbl{display:block;font-size:11px}
+    .detail.is-rtd #dElectBox > .lbl{display:block;font-size:11px}
+    /* #chamber's grid rule outranks the collapse rule above; restate it. */
+    .panel.collapsed > #chamber{display:none}
     .detail #dElectBox[hidden]{display:none}
     .detail #dElectBox > .lbl{display:none}
     .detail #dElect{font-size:12px;color:var(--ink)}
@@ -288,6 +293,7 @@
     <button type="button" data-ch="senate">Senate &middot; 35</button>
     <button type="button" data-ch="congress">Congress &middot; 8</button>
     <button type="button" data-ch="counties">Counties &middot; 64</button>
+    <button type="button" data-ch="rtd" class="wide">RTD board &middot; 15</button>
   </div>
   <form class="addr" id="addrForm" autocomplete="off">
     <input id="addrQ" type="text" placeholder="Look up an address"
@@ -519,12 +525,12 @@
     return row ? row[1] : null;
   }
   function fillFor(p) {
-    if (shadeMode === "margin") {
+    if (shadeMode === "margin" && !isRtd()) {
       var r = resultFor(p.d);
       var ramp = r && RAMP[r.party];
       return ramp ? ramp[marginStep(r)] : NO_PARTY;
     }
-    if (shadeMode !== "party") return FILL[(p.c != null ? p.c : p.d) % FILL.length];
+    if (shadeMode !== "party" || isRtd()) return FILL[(p.c != null ? p.c : p.d) % FILL.length];
     return PARTY_FILL[partyOf(p.d)] || NO_PARTY;
   }
 
@@ -532,7 +538,7 @@
   // .62 the basemap greys every step toward the next.
   function fillAlpha() {
     if (outlinesOnly) return .14;
-    return shadeMode === "margin" ? .88 : .62;
+    return shadeMode === "margin" && !isRtd() ? .88 : .62;
   }
 
   // Outlines. The thin blue line works over the pale mixed palette and
@@ -540,7 +546,7 @@
   // a blue seam between two reds that reads as a third colour. In those
   // modes the borders are white, the usual choropleth convention, which
   // separates two neighbours of the same shade without competing with them.
-  function shaded() { return shadeMode === "party" || shadeMode === "margin"; }
+  function shaded() { return !isRtd() && (shadeMode === "party" || shadeMode === "margin"); }
 
   var BASE = function (p) {
     if (outlinesOnly) {
@@ -564,7 +570,7 @@
   // outline is drawn separately (see haloFor) so it reads on any fill.
   function PICKED(p) {
     var b = BASE(p);
-    b.fillOpacity = outlinesOnly ? .22 : (shadeMode === "margin" ? .97 : .85);
+    b.fillOpacity = outlinesOnly ? .22 : (shadeMode === "margin" && !isRtd() ? .97 : .85);
     return b;
   }
 
@@ -596,8 +602,20 @@
     // shading all work for them too. Their key is the county FIPS code
     // (Adams 1 ... Yuma 125); people see the name, never the code.
     counties: { url: "{{ counties_url }}", label: "County",
-                short: "Counties", tag: "County", noun: "county", n: 64 }
+                short: "Counties", tag: "County", noun: "county", n: 64 },
+    // The RTD Board of Directors: fifteen districts lettered A to O, keyed
+    // 1-15. Nonpartisan, so there is no party or margin shading for it.
+    rtd:      { url: "{{ rtd_url }}", label: "RTD District",
+                short: "RTD", tag: "RTD", noun: "RTD", n: 15 }
   };
+  function isRtd(ch) { return (ch || chamber) === "rtd"; }
+  // Chambers whose features carry a display name (a county name, an RTD
+  // letter) instead of being known by their number.
+  function isNamed(ch) { return isCounty(ch) || isRtd(ch); }
+  function propsOf(ch, d) {
+    var g = cache[ch], l = g && g.byNum[d];
+    return l ? l.feature.properties : null;
+  }
   function isCounty(ch) { return (ch || chamber) === "counties"; }
   function countyProps(d) {
     var g = cache.counties, l = g && g.byNum[d];
@@ -610,13 +628,24 @@
       var p = countyProps(d);
       return p ? p.name + " County" : "County " + d;
     }
+    if (isRtd(ch)) {
+      var rp = propsOf("rtd", d);
+      return "RTD District " + (rp ? rp.name : d);
+    }
     return CHAMBERS[ch].label + " " + d;
+  }
+  function shortName(ch, d) {
+    var p = isNamed(ch) && propsOf(ch, d);
+    return p ? p.name : String(d);
+  }
+  function partyTag(row) {
+    return row && row[1] ? " (" + row[1] + ")" : "";
   }
   var PARTY = { D: "Democrat", R: "Republican", I: "Independent",
                 U: "Unaffiliated", L: "Libertarian" };
 
   var chamber = {{ start_chamber|tojson }};
-  var ALL = ["house", "senate", "congress", "counties"];
+  var ALL = ["house", "senate", "congress", "counties", "rtd"];
   var cache = {};              // chamber -> {layers, labels, marks, byNum, home}
   var members = null;          // {house:{d:[name,party,note?]}, senate:{...}}
   var layers = null, labels = null, labelMarks = [], byNum = {};
@@ -652,8 +681,9 @@
 
   function say(msg) { note.textContent = msg; }
   function idle() {
-    return isCounty() ? "Click any county to zoom in and see who represents it."
-                      : "Click any district to zoom in and see its number.";
+    if (isCounty()) return "Click any county to zoom in and see who represents it.";
+    if (isRtd()) return "Click any district to see its RTD director.";
+    return "Click any district to zoom in and see its number.";
   }
 
   // ---- detail bar ---------------------------------------------------------
@@ -667,8 +697,9 @@
     var who = document.getElementById("dWho");
     var noteEl = document.getElementById("dNote");
     detail.classList.toggle("is-county", isCounty());
+    detail.classList.toggle("is-rtd", isRtd());
     document.getElementById("dWhoLbl").textContent =
-      isCounty() ? "County seat" : "Current member";
+      isCounty() ? "County seat" : isRtd() ? "Director" : "Current member";
     if (isCounty()) {
       var cp = countyProps(d);
       who.textContent = cp ? cp.seat : "\u2014";
@@ -686,10 +717,12 @@
     var party = PARTY[row[1]] || row[1];
     who.textContent = "";
     who.appendChild(document.createTextNode(row[0] + " "));
-    var tag = document.createElement("span");
-    tag.className = "party";
-    tag.textContent = "(" + party + ")";
-    who.appendChild(tag);
+    if (party) {
+      var tag = document.createElement("span");
+      tag.className = "party";
+      tag.textContent = "(" + party + ")";
+      who.appendChild(tag);
+    }
     if (row[2]) { noteEl.textContent = row[2]; noteEl.hidden = false; }
     else { noteEl.hidden = true; }
   }
@@ -719,6 +752,26 @@
     var r = resultFor(d);
     box.querySelector(".lbl").textContent =
       isCounty() ? "2024 president" : "Last election";
+    if (isRtd()) {
+      var rp = propsOf("rtd", d);
+      var row = members && members.rtd && members.rtd[String(d)];
+      if (!rp) { box.hidden = true; return; }
+      var el = document.getElementById("dElect");
+      if (rp.up === 2026) {
+        box.querySelector(".lbl").textContent = "On the Nov 2026 ballot";
+        el.textContent = rp.ballot.length === 1 ? rp.ballot[0] + ", unopposed"
+                                                : rp.ballot.join(" vs. ");
+        var running = row && rp.ballot.some(function (n) { return surname(n) === surname(row[0]); });
+        noteEl.textContent = row && !running ? row[0] + " is not on the ballot." : "";
+        noteEl.hidden = !(row && !running);
+      } else {
+        box.querySelector(".lbl").textContent = "Next on the ballot";
+        el.textContent = "November " + rp.up;
+        noteEl.hidden = true;
+      }
+      box.hidden = false;
+      return;
+    }
     if (!r) { box.hidden = true; return; }
     if (isCounty()) {
       document.getElementById("dElect").textContent =
@@ -758,7 +811,7 @@
   // Both come from the same table: every 2020 Census block assigned to its
   // county and to its House, Senate and congressional district, so the
   // shares are of residents, not of land.
-  var IN_ORDER = [["house", "House"], ["senate", "Senate"], ["congress", "CD"]];
+  var IN_ORDER = [["house", "House"], ["senate", "Senate"], ["congress", "CD"], ["rtd", "RTD"]];
 
   function dlink(ch, d, text) {
     var b = document.createElement("button");
@@ -795,7 +848,8 @@
         line.appendChild(k);
         rows.forEach(function (r, i) {
           if (i) line.appendChild(document.createTextNode(", "));
-          var b = dlink(pair[0], r[0], String(r[0]));
+          var b = dlink(pair[0], r[0], pair[0] === "rtd" ? "ABCDEFGHIJKLMNO".charAt(r[0] - 1)
+                                                          : String(r[0]));
           b.title = r[1].toLocaleString() + " of the county's residents";
           line.appendChild(b);
         });
@@ -872,6 +926,7 @@
     var row = members && members[chamber] && members[chamber][String(d)];
     face.textContent = "";
     if (!row || isCounty()) { face.hidden = true; return; }
+    // Directors have no portraits here; initials keep the card's shape.
     face.hidden = false;
     // Eager here, not lazy: the bar opens because someone asked for this one
     // district, so the portrait should be there when the panel appears.
@@ -905,8 +960,9 @@
     layer.setStyle(PICKED(p));
     haloFor(layer);
     document.getElementById("dLbl").textContent = CHAMBERS[chamber].label;
-    document.getElementById("dNum").textContent = isCounty() ? p.name : p.d;
+    document.getElementById("dNum").textContent = isNamed() ? p.name : p.d;
     document.getElementById("dArea").textContent =
+      (isRtd() && p.pop ? p.pop.toLocaleString() + " people (2020) \u00b7 " : "") +
       p.area.toLocaleString() + " square miles";
     fillMember(p.d);
     syncRosterLabel();
@@ -957,6 +1013,8 @@
   function syncLegend() {
     var legend = document.getElementById("legend");
     var mlegend = document.getElementById("mlegend");
+    document.getElementById("shade").hidden = isRtd();
+    if (isRtd()) { legend.hidden = mlegend.hidden = true; return; }
     mlegend.hidden = shadeMode !== "margin";
     if (!mlegend.hidden) {
       document.getElementById("mfoot").textContent = {
@@ -1084,7 +1142,7 @@
 
   function buildRoster() {
     rosterQ.placeholder = isCounty() ? "Filter by county or seat"
-                                     : "Filter by name or number";
+                        : isRtd() ? "Filter by letter or name" : "Filter by name or number";
     if (isCounty()) {
       rosterList.textContent = "";
       rosterRows = [];
@@ -1114,7 +1172,8 @@
       nm.textContent = name || "Vacant";
       var sub = document.createElement("span");
       sub.className = "sub";
-      sub.textContent = CHAMBERS[chamber].tag + " " + i +
+      var shown = shortName(chamber, i);
+      sub.textContent = CHAMBERS[chamber].tag + " " + shown +
                         (party ? " \u00b7 " + (PARTY[party] || party) : "");
       txt.appendChild(nm);
       txt.appendChild(document.createElement("br"));
@@ -1124,12 +1183,12 @@
       var dot = document.createElement("span");
       dot.className = "dot";
       dot.style.background = PARTY_FILL[party] || NO_PARTY;
-      btn.appendChild(dot);
+      if (party) btn.appendChild(dot);
 
       li.appendChild(btn);
       rosterList.appendChild(li);
       rosterRows.push({ li: li, btn: btn, d: i,
-                        hay: (i + " " + name + " " + party).toLowerCase() });
+                        hay: (shown + " " + name + " " + party).toLowerCase() });
     }
     markRoster();
     filterRoster();
@@ -1196,13 +1255,14 @@
   function syncRosterLabel() {
     if (!picked || !picked.feature) {
       rosterLabel.textContent = isCounty() ? "Zoom to a county"
+        : isRtd() ? "Zoom to an RTD district"
         : "Zoom to a " + CHAMBERS[chamber].noun + " district";
       return;
     }
     var d = picked.feature.properties.d;
     if (isCounty()) { rosterLabel.textContent = nameOf(chamber, d); return; }
     var row = members && members[chamber] && members[chamber][String(d)];
-    rosterLabel.textContent = CHAMBERS[chamber].tag + " " + d +
+    rosterLabel.textContent = CHAMBERS[chamber].tag + " " + shortName(chamber, d) +
                               (row ? " \u00b7 " + row[0] : "");
   }
   document.getElementById("detailClose").addEventListener("click", clearPick);
@@ -1258,8 +1318,8 @@
           var who = (members && members[ch] && members[ch][String(f.properties.d)]);
           if (!NO_HOVER) {
             lyr.bindTooltip((isCounty(ch) ? f.properties.name + " County"
-                                          : CHAMBERS[ch].label + " " + f.properties.d) +
-                            (who ? " \u00b7 " + who[0] + " (" + who[1] + ")" : ""),
+                             : CHAMBERS[ch].label + " " + (isRtd(ch) ? f.properties.name : f.properties.d)) +
+                            (who ? " \u00b7 " + who[0] + partyTag(who) : ""),
                             { sticky: true, direction: "top", opacity: .9 });
             lyr.on({
               mouseover: function () { if (lyr !== picked) lyr.setStyle(HOVER()); },
@@ -1277,7 +1337,7 @@
       g.count++;
 
       var ll = L.latLng(f.properties.label[1], f.properties.label[0]);
-      var text = isCounty(ch) ? f.properties.name : String(f.properties.d);
+      var text = isNamed(ch) ? f.properties.name : String(f.properties.d);
       var span = document.createElement("span");
       span.className = isCounty(ch) ? "dnum cname" : "dnum";
       span.textContent = text;
@@ -1405,7 +1465,8 @@
     if (!lyr) {
       clearPick();
       map.flyTo([addr.lat, addr.lon], 10, { duration: .6 });
-      say(addr.name + " is not inside any " + CHAMBERS[chamber].label.toLowerCase() + ".");
+      say(isRtd() ? addr.name + " is outside the RTD district."
+                  : addr.name + " is not inside any " + CHAMBERS[chamber].label.toLowerCase() + ".");
       return;
     }
     show(lyr);
@@ -1436,7 +1497,7 @@
       b.setAttribute("data-ch", other);
       b.textContent = (also.childNodes.length ? "" : "Also in ") +
                       nameOf(other, on) +
-                      (row ? " \u00b7 " + row[0] + " (" + row[1] + ")" : "");
+                      (row ? " \u00b7 " + row[0] + partyTag(row) : "");
       also.appendChild(b);
     });
 
@@ -1520,6 +1581,7 @@
     layers.addTo(map);
     labels.addTo(map);
     countEl.textContent = isCounty(ch) ? g.count + " counties · 2020 Census"
+      : isRtd(ch) ? g.count + " RTD director districts · 2022 plan"
       : g.count + " " + CHAMBERS[ch].noun + " districts · 2024 boundaries";
     buildRoster();
     syncRosterLabel();
@@ -1565,7 +1627,7 @@
     if (switching || ch === chamber && cache[ch]) return;
     switching = true;
     markButtons(ch);
-    if (!cache[ch]) say(isCounty(ch) ? "Loading counties\u2026"
+    if (!cache[ch]) say(isCounty(ch) ? "Loading counties\u2026" : isRtd(ch) ? "Loading RTD districts\u2026"
                                       : "Loading " + CHAMBERS[ch].noun + " districts…");
     load(ch).then(function () {
       clearPick();
